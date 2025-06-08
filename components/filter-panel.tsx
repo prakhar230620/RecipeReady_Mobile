@@ -63,7 +63,7 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
   };
 
   return (
-    <main className="grid grid-cols-2 gap-4">
+    <main className="flex flex-col gap-4">
       <div className="space-y-2">
         <Label className="text-sm font-medium">👥 Servings</Label>
         <div className="flex items-center">
