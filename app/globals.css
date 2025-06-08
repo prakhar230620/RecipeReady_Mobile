@@ -1,0 +1,180 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%; /* Very light cool grey/off-white */
+    --foreground: 210 20% 25%; /* Dark cool grey */
+    --card: 0 0% 100%;
+    --card-foreground: 210 20% 25%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 20% 25%;
+    --primary: 340 85% 55%; /* Vibrant Pink/Magenta */
+    --primary-foreground: 0 0% 100%; /* White */
+    --secondary: 260 70% 92%; /* Light Lavender */
+    --secondary-foreground: 260 30% 30%; /* Dark Purple */
+    --muted: 210 30% 94%; /* Lighter version of secondary */
+    --muted-foreground: 210 15% 50%; /* Medium cool grey */
+    --accent: 45 90% 55%; /* Bright Yellow/Gold */
+    --accent-foreground: 210 20% 15%; /* Dark grey for contrast on accent */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 210 20% 85%; /* Subtle cool grey border */
+    --input: 210 20% 92%; /* Slightly darker than background for input */
+    --ring: 340 85% 55%; /* Same as primary */
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+
+    /* Sidebar variables */
+    --sidebar-background: 210 30% 96%;
+    --sidebar-foreground: 210 20% 30%;
+    --sidebar-primary: 340 80% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 45 85% 50%;
+    --sidebar-accent-foreground: 210 20% 15%;
+    --sidebar-border: 210 20% 80%;
+    --sidebar-ring: 340 80% 50%;
+  }
+
+  .dark {
+    --background: 260 25% 10%; /* Deep Indigo/Dark Purple */
+    --foreground: 260 30% 90%; /* Light Lavender/Off-white */
+    --card: 260 23% 13%;
+    --card-foreground: 260 30% 90%;
+    --popover: 260 23% 13%;
+    --popover-foreground: 260 30% 90%;
+    --primary: 340 90% 65%; /* Brighter Pink/Magenta for dark mode */
+    --primary-foreground: 260 20% 10%; /* Dark purple for contrast on primary */
+    --secondary: 260 20% 22%; /* Darker Purple/Indigo */
+    --secondary-foreground: 260 30% 85%; /* Lighter Lavender */
+    --muted: 260 20% 18%; /* Even darker Purple/Indigo */
+    --muted-foreground: 260 25% 60%; /* Medium-light Lavender */
+    --accent: 45 95% 60%; /* Brighter Yellow/Gold for dark mode */
+    --accent-foreground: 260 20% 10%; /* Dark purple for contrast on accent */
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 260 15% 28%; /* Subtle dark border */
+    --input: 260 15% 25%; /* Slightly lighter than background for input */
+    --ring: 340 90% 65%; /* Same as dark primary */
+
+    /* Dark Sidebar variables */
+    --sidebar-background: 260 22% 8%;
+    --sidebar-foreground: 260 30% 88%;
+    --sidebar-primary: 340 85% 60%;
+    --sidebar-primary-foreground: 260 20% 8%;
+    --sidebar-accent: 45 90% 55%;
+    --sidebar-accent-foreground: 260 20% 8%;
+    --sidebar-border: 260 15% 22%;
+    --sidebar-ring: 340 85% 60%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground overflow-y-auto min-h-screen;
+  }
+}
+
+/* Add mobile-specific styles */
+@layer components {
+  .mobile-container {
+    @apply max-w-md mx-auto pb-20;
+  }
+
+  .mobile-header {
+    @apply fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b;
+  }
+
+  .mobile-bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t flex justify-around items-center h-16;
+  }
+
+  .mobile-nav-item {
+    @apply flex flex-col items-center justify-center w-full py-2 text-xs;
+  }
+
+  .mobile-nav-item.active {
+    @apply text-primary;
+  }
+
+  .mobile-page-container {
+    @apply pt-16 pb-36 px-4; /* Increased bottom padding to prevent content from being hidden */
+  }
+  
+  /* Fix for content being hidden by footer and mobile navigation */
+  main {
+    @apply pb-32; /* Increased padding at the bottom to prevent content from being hidden */
+    min-height: calc(100vh - 4rem - 4rem); /* Ensure main content takes up at least the viewport height minus header and footer */
+  }
+
+  .mobile-card {
+    @apply rounded-xl border shadow-sm overflow-hidden;
+  }
+
+  .mobile-button {
+    @apply rounded-full;
+  }
+
+  .pwa-install-banner {
+    @apply fixed bottom-20 left-4 right-4 bg-card border rounded-lg p-4 shadow-lg z-40 flex justify-between items-center;
+  }
+
+  /* Add fade-in animation for recipe cards */
+  .fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  .dark .shimmer {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+    background-size: 200% 100%;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-friendly {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+
+  .recipe-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
