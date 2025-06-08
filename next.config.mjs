@@ -10,6 +10,13 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    domains: ['images.unsplash.com', 'lh3.googleusercontent.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
   },
   distDir: '.next',
   reactStrictMode: true,
@@ -37,7 +44,10 @@ const nextConfig = {
   // Ensure static files are properly served
   poweredByHeader: false,
   generateEtags: false,
-  compress: true
+  compress: true,
+  // Add production specific settings
+  productionBrowserSourceMaps: false,
+  swcMinify: true,
 }
 
 export default withPWA({
