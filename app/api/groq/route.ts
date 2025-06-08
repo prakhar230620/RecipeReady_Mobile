@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import type { Recipe, RecipeFilters } from "@/lib/types"
+import { getGroqApiKey, markKeyAsRateLimited } from "@/lib/groq-api-keys"
 
 export const dynamic = 'force-dynamic'
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyAADeCP52o554AU2IrQFb9NeDruudFBYdM"
 
@@ -17,20 +17,16 @@ export async function POST(request: NextRequest) {
 
     // Get user's selected language
     const userLanguage = request.headers.get("accept-language")?.split(",")[0] || "en"
-
-    // If no Groq API key, return a mock recipe
-    if (!GROQ_API_KEY) {
-      console.warn("Groq API key not configured, returning mock recipe")
-      const mockRecipe = await createMockRecipeWithImage(ingredients, filters, userLanguage)
-      return NextResponse.json({ recipe: mockRecipe })
-    }
+    
+    // Get the next available API key from the rotation system
+    const currentApiKey = getGroqApiKey()
 
     const prompt = buildNaturalLanguagePrompt(ingredients, filters)
 
     const response = await fetch(GROQ_API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${currentApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -55,6 +51,12 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`Groq API error: ${response.status} ${response.statusText}`, errorText)
+      
+      // Mark the current key as rate limited if we get a 429 error
+      if (response.status === 429) {
+        console.warn(`API key rate limited: ${currentApiKey.substring(0, 10)}...`)
+        markKeyAsRateLimited(currentApiKey)
+      }
 
       // Return mock recipe as fallback
       const mockRecipe = await createMockRecipeWithImage(ingredients, filters, userLanguage)
@@ -238,7 +240,7 @@ Return ONLY a JSON object with this exact structure (no additional text):
   "instructions": ["🔪 Step 1 with specific details and emoji", "🔥 Step 2 with temperature/timing and emoji", "..."],
   "prepTime": 15,
   "cookTime": 25,
-  "difficulty": "${filters.difficulty?.length > 0 && !filters.difficulty.includes("any") ? filters.difficulty[0] : 'Medium'}",
+  "difficulty": "${(filters.difficulty && filters.difficulty.length > 0 && !filters.difficulty.includes("any")) ? filters.difficulty[0] : 'Medium'}",
   "cuisine": "${filters.cuisine?.length > 0 && !filters.cuisine.includes("any") ? filters.cuisine[0] : 'International'}",
   "dietary": [${filters.dietary?.length > 0 && !filters.dietary.includes("any") ? '"' + filters.dietary.join('", "') + '"' : ''}],
   "nutrition": {
