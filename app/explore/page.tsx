@@ -10,6 +10,7 @@ import LoadingShimmer from "@/components/loading-shimmer"
 import RecipeCard from "@/components/recipe-card"
 import type { Recipe } from "@/lib/types"
 import { useGroqRecipe } from "@/hooks/use-groq-recipe"
+import { saveRecipe } from "@/lib/indexdb"
 
 const CUISINE_CATEGORIES = [
   { name: "Italian", emoji: "🍝" },
@@ -45,24 +46,26 @@ export default function ExplorePage() {
     try {
       const recipe1 = await generateRecipe("popular pasta dish", {
         servings: 4,
-        cuisine: "italian",
-        mealType: "dinner",
-        cookTime: "",
-        dietary: "",
-        healthProfile: "",
-        spiceLevel: "",
+        cuisine: ["italian"],
+        mealType: ["dinner"],
+        cookTime: [],
+        dietary: [],
+        healthProfile: [],
+        spiceLevel: [],
       })
       const recipe2 = await generateRecipe("healthy breakfast", {
         servings: 2,
-        cuisine: "",
-        mealType: "breakfast",
-        cookTime: "quick",
-        dietary: "",
-        healthProfile: "low-calorie",
-        spiceLevel: "",
+        cuisine: [],
+        mealType: ["breakfast"],
+        cookTime: ["quick"],
+        dietary: [],
+        healthProfile: ["low-calorie"],
+        spiceLevel: [],
       })
 
       if (recipe1 && recipe2) {
+        await saveRecipe(recipe1);
+        await saveRecipe(recipe2);
         setRecipes([recipe1, recipe2])
       }
     } catch (error) {
@@ -76,14 +79,15 @@ export default function ExplorePage() {
     try {
       const recipe = await generateRecipe(searchQuery, {
         servings: 4,
-        cuisine: "",
-        mealType: "",
-        cookTime: "",
-        dietary: "",
-        healthProfile: "",
-        spiceLevel: "",
+        cuisine: [],
+        mealType: [],
+        cookTime: [],
+        dietary: [],
+        healthProfile: [],
+        spiceLevel: [],
       })
       if (recipe) {
+        await saveRecipe(recipe);
         setRecipes((prev) => [recipe, ...prev])
       }
     } catch (error) {
@@ -95,14 +99,15 @@ export default function ExplorePage() {
     try {
       const recipe = await generateRecipe(`${category} recipe`, {
         servings: 4,
-        cuisine: category,
-        mealType: "",
-        cookTime: "",
-        dietary: "",
-        healthProfile: "",
-        spiceLevel: "",
+        cuisine: [category],
+        mealType: [],
+        cookTime: [],
+        dietary: [],
+        healthProfile: [],
+        spiceLevel: [],
       })
       if (recipe) {
+        await saveRecipe(recipe);
         setRecipes((prev) => [recipe, ...prev])
       }
     } catch (error) {
@@ -114,14 +119,15 @@ export default function ExplorePage() {
     try {
       const recipe = await generateRecipe(`${mealType} recipe`, {
         servings: 4,
-        cuisine: "",
-        mealType: mealType.toLowerCase(),
-        cookTime: "",
-        dietary: "",
-        healthProfile: "",
-        spiceLevel: "",
+        cuisine: [],
+        mealType: [mealType.toLowerCase()],
+        cookTime: [],
+        dietary: [],
+        healthProfile: [],
+        spiceLevel: [],
       })
       if (recipe) {
+        await saveRecipe(recipe);
         setRecipes((prev) => [recipe, ...prev])
       }
     } catch (error) {

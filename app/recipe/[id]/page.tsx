@@ -8,6 +8,7 @@ import LoadingShimmer from "@/components/loading-shimmer"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Plus } from "lucide-react"
 import { useRecipes } from "@/context/recipe-context"
+import { getRecipe, deleteRecipe } from "@/lib/indexdb"
 
 export default function RecipePage() {
   const params = useParams()
@@ -17,6 +18,7 @@ export default function RecipePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const fetchRecipe = async () => {
     const recipeId = params.id as string
 
     // First check if recipe is in generatedRecipes from context
@@ -27,20 +29,12 @@ export default function RecipePage() {
       return
     }
 
-    // Try to get recipe from localStorage as fallback
-    const storedRecipes = localStorage.getItem("generated-recipes")
-    if (storedRecipes) {
-      try {
-        const recipes: Recipe[] = JSON.parse(storedRecipes)
-        const foundRecipe = recipes.find((r) => r.id === recipeId)
-        if (foundRecipe) {
-          setRecipe(foundRecipe)
-          setLoading(false)
-          return
-        }
-      } catch (error) {
-        console.error("Error parsing stored recipes:", error)
-      }
+    // Try to get recipe from IndexDB as fallback
+    const storedRecipe = await getRecipe(recipeId);
+    if (storedRecipe) {
+      setRecipe(storedRecipe);
+      setLoading(false);
+      return;
     }
 
     // Check if recipe is in favorites
@@ -54,21 +48,14 @@ export default function RecipePage() {
     // If recipe not found, redirect to home
     setLoading(false)
     router.push("/")
+    };
+    fetchRecipe();
   }, [params.id, favoriteRecipes, generatedRecipes, router])
 
-  const handleCreateNew = () => {
-    // Clear current recipe from localStorage if not favorited
+  const handleCreateNew = async () => {
+    // Clear current recipe from IndexDB if not favorited
     if (recipe && !favoriteRecipes.some((r) => r.id === recipe.id)) {
-      const storedRecipes = localStorage.getItem("generated-recipes")
-      if (storedRecipes) {
-        try {
-          const recipes: Recipe[] = JSON.parse(storedRecipes)
-          const filteredRecipes = recipes.filter((r) => r.id !== recipe.id)
-          localStorage.setItem("generated-recipes", JSON.stringify(filteredRecipes))
-        } catch (error) {
-          console.error("Error updating stored recipes:", error)
-        }
-      }
+      await deleteRecipe(recipe.id);
     }
 
     router.push("/")

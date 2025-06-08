@@ -1,16 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { Recipe } from "@/lib/types"
 import { useRecipes } from "@/context/recipe-context"
+import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Heart, Clock, Users, ChefHat, Printer, Share2, Star, ChevronDown, ChevronUp, Zap } from "lucide-react"
-import Image from "next/image"
-import { addEmojisToIngredients, addEmojisToInstructions } from "@/lib/emoji-mapper"
-import toast from "react-hot-toast"
-import { useAuth } from "@/context/auth-context"
+import { Share2, Clock, Users, Star, ChevronDown, ChevronUp, Printer, Heart, Zap, ChefHat } from "lucide-react"
+import { FacebookShareButton, WhatsappShareButton, TelegramShareButton, EmailShareButton, FacebookIcon, WhatsappIcon, TelegramIcon, EmailIcon } from 'react-share'
+import { toast } from "sonner"
+import { addEmojisToIngredients, addEmojisToInstructions, addEmojisToText } from "@/lib/emoji-mapper"
 
 interface RecipeCardProps {
   recipe: Recipe
@@ -26,14 +26,21 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
 
   const handleFavoriteToggle = async () => {
     if (!user) {
-      toast.error("Please sign in to save favorites")
-      return
+      toast.error("Please sign in to save favorites");
+      return;
     }
 
-    if (isRecipeFavorite) {
-      await removeFromFavorites(recipe.id)
-    } else {
-      await addToFavorites(recipe)
+    try {
+      if (isRecipeFavorite) {
+        await removeFromFavorites(recipe.id);
+        toast.success("Removed from favorites");
+      } else {
+        await addToFavorites(recipe);
+        toast.success("Added to favorites");
+      }
+    } catch (error) {
+      console.error("Error updating favorites:", error);
+      toast.error("Failed to update favorites");
     }
   }
 
@@ -68,15 +75,15 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
             <div class="ingredients">
               <h2>Ingredients</h2>
               <ul>
-                ${addEmojisToIngredients(recipe.ingredients)
-                  .map((ingredient) => `<li>${ingredient}</li>`)
+                ${recipe.ingredients
+                  .map((ingredient) => `<li>${addEmojisToText(ingredient)}</li>`)
                   .join("")}
               </ul>
             </div>
             <h2>Instructions</h2>
             <ol>
-              ${addEmojisToInstructions(recipe.instructions)
-                .map((instruction) => `<li>${instruction}</li>`)
+              ${recipe.instructions
+                .map((instruction) => `<li>${addEmojisToText(instruction)}</li>`)
                 .join("")}
             </ol>
             ${
@@ -100,43 +107,53 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
     }
   }
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: recipe.title,
-          text: recipe.description,
-          url: window.location.href,
-        })
-      } catch (error) {
-        console.error("Error sharing:", error)
-      }
-    } else {
-      navigator.clipboard.writeText(window.location.href)
-      toast.success("Recipe link copied to clipboard! 📋")
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  
+  // Set client-side state after mount
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  const shareUrl = isClient ? window.location.href : '';
+  const recipeText = `Check out this delicious ${recipe.title} recipe!`;
+  const recipeDetails = `*${recipe.title}*\n\n` +
+    `${recipe.description ? recipe.description + '\n\n' : ''}` +
+    `⏱️ Prep: ${recipe.prepTime} min | 🔥 Cook: ${recipe.cookTime} min\n` +
+    `👥 Serves: ${recipe.servings} | 📊 ${recipe.difficulty}`;
+
+  const handleShareClick = () => {
+    setShowShareOptions(!showShareOptions);
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Link copied to clipboard! 📋');
+      setShowShareOptions(false);
+    } catch (error) {
+      toast.error('Failed to copy link');
     }
-  }
+  };
 
   const enhancedIngredients = addEmojisToIngredients(recipe.ingredients)
   const enhancedInstructions = addEmojisToInstructions(recipe.instructions)
+
+  if (!isClient) return null;
 
   return (
     <Card className="recipe-card fade-in print-friendly overflow-hidden mobile-card">
       <div className="relative h-56 bg-muted">
         {recipe.image && !imageError ? (
-          <Image
-            src={recipe.image || "/placeholder.svg"}
+          <img
+            src={recipe.image}
             alt={recipe.title}
-            fill
-            className="object-cover"
+            className="object-cover w-full h-full"
             crossOrigin="anonymous"
             onError={() => setImageError(true)}
+            style={{ objectFit: 'cover' }}
           />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
-            <ChefHat className="h-16 w-16 text-muted-foreground" />
-          </div>
-        )}
+        ) : null}
         <div className="absolute top-3 right-3 flex gap-2 no-print">
           <Button
             variant="secondary"
@@ -275,11 +292,64 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
           <Button variant="outline" size="icon" onClick={handlePrint} className="h-9 w-9 p-0 rounded-full">
             <Printer className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={handleShare} className="h-9 w-9 p-0 rounded-full">
-            <Share2 className="h-4 w-4" />
-          </Button>
+          <div className="relative">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={handleShareClick} 
+              className="h-9 w-9 p-0 rounded-full"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+            {showShareOptions && (
+              <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 z-50 flex gap-2 border border-gray-200 dark:border-gray-700">
+                <FacebookShareButton 
+                  url={shareUrl}
+                  // @ts-ignore - quote prop works but isn't in the type definitions
+                  quote={recipe.title}
+                  className="focus:outline-none"
+                  onClick={() => setShowShareOptions(false)}
+                >
+                  <FacebookIcon size={32} round />
+                </FacebookShareButton>
+                <WhatsappShareButton
+                  url={shareUrl}
+                  title={recipeText}
+                  className="focus:outline-none"
+                  onClick={() => setShowShareOptions(false)}
+                >
+                  <WhatsappIcon size={32} round />
+                </WhatsappShareButton>
+                <TelegramShareButton
+                  url={shareUrl}
+                  title={recipeText}
+                  className="focus:outline-none"
+                  onClick={() => setShowShareOptions(false)}
+                >
+                  <TelegramIcon size={32} round />
+                </TelegramShareButton>
+                <EmailShareButton
+                  url={shareUrl}
+                  subject={`Check out this recipe: ${recipe.title}`}
+                  body={recipeDetails}
+                  className="focus:outline-none"
+                  onClick={() => setShowShareOptions(false)}
+                >
+                  <EmailIcon size={32} round />
+                </EmailShareButton>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleCopyLink}
+                  className="h-8 px-2 text-xs"
+                >
+                  Copy Link
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </CardFooter>
     </Card>
-  )
+  );
 }

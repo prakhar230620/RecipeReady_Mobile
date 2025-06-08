@@ -247,7 +247,9 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
     }
     setFavoriteRecipes((prevFavorites) => {
       const newFavorites = [...prevFavorites, recipe]
-      saveToIndexedDB(FAVORITES_STORE, session.user!.email, newFavorites)
+      if (session.user?.email) {
+        saveToIndexedDB(FAVORITES_STORE, session.user.email, newFavorites)
+      }
       console.log("Added to favorites, updated state:", newFavorites)
       return newFavorites
     })
@@ -258,7 +260,9 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
     if (!session?.user?.email) return
     setFavoriteRecipes((prevFavorites) => {
       const newFavorites = prevFavorites.filter((r) => r.id !== recipeId)
-      saveToIndexedDB(FAVORITES_STORE, session.user!.email, newFavorites)
+      if (session.user?.email) {
+        saveToIndexedDB(FAVORITES_STORE, session.user.email, newFavorites)
+      }
       console.log("Removed from favorites, updated state:", newFavorites)
       return newFavorites
     })

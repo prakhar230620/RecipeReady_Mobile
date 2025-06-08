@@ -1,8 +1,10 @@
 "use client"
 
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/auth-context"
 import { useRecipes } from "@/context/recipe-context"
 import RecipeCard from "@/components/recipe-card"
+import { getAllRecipes } from "@/lib/indexdb";
 import LoadingShimmer from "@/components/loading-shimmer"
 import { Heart, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,7 +12,24 @@ import Link from "next/link"
 
 export default function FavoritesPage() {
   const { user, status } = useAuth()
-  const { favoriteRecipes, loading } = useRecipes()
+  const { favoriteRecipes } = useRecipes()
+  const [generatedRecipes, setGeneratedRecipes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadGeneratedRecipes = async () => {
+      setLoading(true);
+      try {
+        const recipes = await getAllRecipes();
+        setGeneratedRecipes(recipes);
+      } catch (error) {
+        console.error("Error loading generated recipes from IndexDB:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadGeneratedRecipes();
+  }, []);
 
   // Show loading state while checking authentication
   if (status === "loading") {
@@ -44,20 +63,32 @@ export default function FavoritesPage() {
             <LoadingShimmer key={i} />
           ))}
         </div>
-      ) : favoriteRecipes.length > 0 ? (
+      ) : favoriteRecipes.length > 0 || generatedRecipes.length > 0 ? (
         <div className="space-y-4">
-          <div className="space-y-4">
-            {favoriteRecipes.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} />
-            ))}
-          </div>
+          {favoriteRecipes.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold mb-4">Your Favorite Recipes</h2>
+              {favoriteRecipes.map((recipe) => (
+                <RecipeCard key={recipe.id} recipe={recipe} />
+              ))}
+            </div>
+          )}
+
+          {generatedRecipes.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold mb-4">Your Generated Recipes</h2>
+              {generatedRecipes.map((recipe) => (
+                <RecipeCard key={recipe.id} recipe={recipe} />
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-center py-12">
           <Heart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-lg font-semibold mb-2">No favorites yet</h2>
+          <h2 className="text-lg font-semibold mb-2">No recipes yet</h2>
           <p className="text-muted-foreground mb-6 text-sm">
-            Start generating recipes and save your favorites to see them here.
+            Start generating recipes to see them here.
           </p>
           <Button asChild className="rounded-full">
             <Link href="/">Generate Recipes</Link>
