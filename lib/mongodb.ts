@@ -4,7 +4,7 @@ if (!process.env.MONGODB_URI) {
   throw new Error('Invalid/Missing environment variable: "MONGODB_URI"')
 }
 
-const uri = process.env.MONGODB_URI
+const uri = 'mongodb+srv://toolminesai:tY9uqb1WnxVf7A6L@mycluster0.u8ntx.mongodb.net/?retryWrites=true&w=majority&appName=Mycluster0'
 const options = {}
 
 let client: MongoClient
