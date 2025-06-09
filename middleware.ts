@@ -7,19 +7,6 @@ export async function middleware(request: NextRequest) {
   // Check if user is an admin based on email
   const isAdmin = token?.email === 'toolminesai@gmail.com'
 
-  // Check if the request is for the admin page
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    // Check if user is authenticated and authorized
-    if (!token?.email || !isAdmin) {
-      // Redirect to regular login page with callback URL
-      const url = new URL('/auth/signin', request.url)
-      url.searchParams.set('callbackUrl', '/admin')
-      return NextResponse.redirect(url)
-    }
-    // If user is authenticated and authorized, allow access to admin page
-    return NextResponse.next()
-  }
-  
   // For admin users, redirect to admin page after login
   if (isAdmin && request.nextUrl.pathname === '/') {
     const referrer = request.headers.get('referer') || ''
@@ -34,5 +21,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/']
+  matcher: ['/']
 }

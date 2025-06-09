@@ -46,7 +46,6 @@ export function MobileNav() {
   // Add admin route if user is admin
   if (isAdmin) {
     routes.push({
-      // Direct link to admin page without query parameters
       href: "/admin",
       label: "Admin",
       active: pathname === "/admin",
