@@ -2,11 +2,14 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Home, Heart, User } from "lucide-react"
+import { Home, Heart, User, Mail } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/context/auth-context"
 
 export default function MobileNav() {
   const pathname = usePathname()
+  const { user } = useAuth()
+  console.log("User object in MobileNav:", user)
 
   const navItems = [
     {
@@ -24,7 +27,17 @@ export default function MobileNav() {
       href: "/profile",
       icon: User,
     },
+    ...(user?.isAdmin
+      ? [
+          {
+            name: "Admin",
+            href: "/admin",
+            icon: Mail,
+          },
+        ]
+      : []),
   ]
+  console.log("Final navItems array:", navItems)
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-t flex justify-around items-center h-16 no-print">

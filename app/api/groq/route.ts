@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import type { Recipe, RecipeFilters } from "@/lib/types"
 import { getGroqApiKey, markKeyAsRateLimited } from "@/lib/groq-api-keys"
+import { getGeminiApiKey, markGeminiKeyAsRateLimited } from "@/lib/gemini-api-keys"
 
 export const dynamic = 'force-dynamic'
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyAADeCP52o554AU2IrQFb9NeDruudFBYdM"
 
 export async function POST(request: NextRequest) {
   try {
@@ -277,9 +277,12 @@ Requirements:
 
 The image should look exactly like what someone would expect when ordering "${title}" at a high-end restaurant.`
 
+    // Get an available Gemini API key from the rotation system
+    const geminiApiKey = getGeminiApiKey()
+    
     // Direct Gemini API call for image generation
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${geminiApiKey}`,
       {
         method: "POST",
         headers: {
@@ -341,6 +344,11 @@ The image should look exactly like what someone would expect when ordering "${ti
     } else {
       const errorText = await response.text()
       console.error("Gemini API Error:", response.status, errorText)
+      
+      // Mark the key as rate limited if we get a 429 Too Many Requests error
+      if (response.status === 429) {
+        markGeminiKeyAsRateLimited(geminiApiKey)
+      }
     }
 
     console.warn("Gemini image generation failed, using curated fallback")

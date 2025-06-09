@@ -7,14 +7,23 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu"
 import { cuisineFlags } from "@/lib/languages"
-import { Plus, Minus, ChevronDownIcon } from "lucide-react"
+import { Plus, Minus, ChevronDownIcon, Sparkles } from "lucide-react"
 
 interface FilterPanelProps {
   filters: RecipeFilters
   onFiltersChange: (filters: RecipeFilters) => void
+  onCreateRecipe?: () => void
+  loading?: boolean
+  ingredients: string
 }
 
-export default function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
+export default function FilterPanel({
+  filters,
+  onFiltersChange,
+  onCreateRecipe,
+  loading,
+  ingredients,
+}: FilterPanelProps) {
   // Track selected options count for each category
   const [selectedCounts, setSelectedCounts] = useState({
     dietary: filters.dietary?.length || 0,
@@ -113,12 +122,18 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
               <ChevronDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[200px]">
+          <DropdownMenuContent className="w-[200px]" onPointerDownOutside={(e) => e.preventDefault()}>
             <DropdownMenuCheckboxItem
               checked={isSelected('cookTime', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('cookTime', 'any', checked === true)}
             >
               ⏰ Any Time
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={isSelected('cookTime', 'very-quick')}
+              onCheckedChange={(checked) => updateArrayFilter('cookTime', 'very-quick', checked === true)}
+            >
+              ⚡ Under 15 min
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={isSelected('cookTime', 'quick')}
@@ -158,7 +173,7 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
               <ChevronDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[200px]">
+          <DropdownMenuContent className="w-[200px]" onPointerDownOutside={(e) => e.preventDefault()}>
             <DropdownMenuCheckboxItem
               checked={isSelected('dietary', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('dietary', 'any', checked === true)}
@@ -245,7 +260,7 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
               <ChevronDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[200px]">
+          <DropdownMenuContent className="w-[200px]" onPointerDownOutside={(e) => e.preventDefault()}>
             <DropdownMenuCheckboxItem
               checked={isSelected('cuisine', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('cuisine', 'any', checked === true)}
@@ -332,7 +347,7 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
               <ChevronDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[200px]">
+          <DropdownMenuContent className="w-[200px]" onPointerDownOutside={(e) => e.preventDefault()}>
             <DropdownMenuCheckboxItem
               checked={isSelected('spiceLevel', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('spiceLevel', 'any', checked === true)}
@@ -383,7 +398,7 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
               <ChevronDownIcon className="ml-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]" onPointerDownOutside={(e) => e.preventDefault()}>
             <DropdownMenuCheckboxItem
               checked={isSelected('mealType', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('mealType', 'any', checked === true)}
@@ -458,7 +473,7 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
               <ChevronDownIcon className="ml-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]" onPointerDownOutside={(e) => e.preventDefault()}>
             <DropdownMenuCheckboxItem
               checked={isSelected('difficulty', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('difficulty', 'any', checked === true)}
@@ -503,7 +518,7 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
               <ChevronDownIcon className="ml-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]" onPointerDownOutside={(e) => e.preventDefault()}>
             <DropdownMenuCheckboxItem
               checked={isSelected('healthProfile', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('healthProfile', 'any', checked === true)}
@@ -555,6 +570,28 @@ export default function FilterPanel({ filters, onFiltersChange }: FilterPanelPro
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Create Recipe Button */}
+      {onCreateRecipe && (
+        <Button
+          onClick={onCreateRecipe}
+          size="sm"
+          className="rounded-2xl h-12 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 w-full mt-2"
+          disabled={loading || ingredients.length === 0}
+        >
+          {loading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+              Creating...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Create Recipe
+            </>
+          )}
+        </Button>
+      )}
     </main>
   )
 }

@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { getGeminiApiKey, markGeminiKeyAsRateLimited } from "@/lib/gemini-api-keys"
 
 export const dynamic = 'force-dynamic'
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyAADeCP52o554AU2IrQFb9NeDruudFBYdM"
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
 
 export async function POST(request: NextRequest) {
@@ -19,8 +19,11 @@ export async function POST(request: NextRequest) {
     } Ensure it looks delicious and well-presented, with good lighting and styling.`
 
     try {
+      // Get an available Gemini API key from the rotation system
+      const apiKey = getGeminiApiKey()
+      
       // Call Gemini API for image generation
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -49,6 +52,12 @@ export async function POST(request: NextRequest) {
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`Gemini API error: ${response.status} ${response.statusText}`, errorText)
+        
+        // Mark the key as rate limited if we get a 429 Too Many Requests error
+        if (response.status === 429) {
+          markGeminiKeyAsRateLimited(apiKey)
+        }
+        
         throw new Error(`Gemini API error: ${response.status}`)
       }
 

@@ -23,6 +23,41 @@ export default function SignInPage() {
     e.preventDefault()
     setLoading(true)
 
+    // Check if the user is an admin
+    const isAdmin = email === 'toolminesai@gmail.com'
+
+    // Special handling for admin login with hardcoded password
+    if (isAdmin) {
+      // Check if admin password is correct
+      if (password !== 'pm61.207') {
+        toast.error('Invalid admin password')
+        setLoading(false)
+        return
+      }
+
+      try {
+        const result = await signIn('credentials', {
+          email,
+          password: 'pm61.207', // Use the hardcoded password for admin
+          redirect: false
+        })
+
+        if (result?.error) {
+          toast.error('Authentication failed')
+        } else {
+          toast.success('Admin signed in successfully!')
+          // Use window.location for a hard redirect instead of router.push
+          window.location.href = '/admin'
+        }
+      } catch (error) {
+        toast.error('Something went wrong')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    // Regular user login
     try {
       const result = await signIn('credentials', {
         email,
@@ -46,6 +81,8 @@ export default function SignInPage() {
   const handleGoogleSignIn = async () => {
     setLoading(true)
     try {
+      // For Google sign-in, we'll handle admin redirection in the callback
+      // The middleware will check if the user is an admin and redirect accordingly
       await signIn('google', { callbackUrl: '/' })
     } catch (error) {
       toast.error('Google sign in failed')

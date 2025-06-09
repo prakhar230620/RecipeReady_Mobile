@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { getDatabase } from '@/lib/mongodb'
+import { sendEmail, emailTemplates } from '@/lib/mail'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,8 +38,21 @@ export async function POST(request: NextRequest) {
       mobile: mobile || null,
       provider: 'credentials',
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      isDeleted: false,
+      deletionScheduledAt: null
     })
+
+    // Send welcome email
+    try {
+      await sendEmail(
+        email,
+        emailTemplates.welcome(fullName)
+      )
+    } catch (emailError) {
+      console.error('Error sending welcome email:', emailError)
+      // Continue with signup process even if email fails
+    }
 
     return NextResponse.json(
       { message: 'User created successfully', userId: result.insertedId },

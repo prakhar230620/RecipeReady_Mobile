@@ -16,7 +16,7 @@ export default function Header() {
       <div className="flex h-14 items-center justify-between px-4">
         {isHomePage ? (
           <Link href="/" className="flex items-center space-x-2">
-            <img src="/icon-192x192.png" alt="RecipeReady Logo" className="h-6 w-6" />
+            <img src="/icon-192x192.png" alt="RecipeReady Logo" className="h-9 w-9" />
             <span className="font-bold text-xl">RecipeReady</span>
           </Link>
         ) : (

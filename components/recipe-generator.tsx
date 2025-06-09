@@ -18,13 +18,13 @@ export default function RecipeGenerator() {
   const [ingredients, setIngredients] = useState("")
   const [filters, setFilters] = useState<RecipeFilters>({
     servings: 2,
-    dietary: "",
-    cuisine: "",
-    spiceLevel: "",
-    mealType: "",
-    cookTime: "",
-    healthProfile: "",
-    difficulty: "",
+    dietary: [] as string[],
+    cuisine: [] as string[],
+    spiceLevel: [] as string[],
+    mealType: [] as string[],
+    cookTime: [] as string[],
+    healthProfile: [] as string[],
+    difficulty: [] as string[],
   })
   const [showFilters, setShowFilters] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -153,7 +153,13 @@ export default function RecipeGenerator() {
 
           {showFilters && (
             <div className="pt-4 border-t-2 border-dashed">
-              <FilterPanel filters={filters} onFiltersChange={setFilters} />
+<FilterPanel
+            filters={filters}
+            onFiltersChange={setFilters}
+            onCreateRecipe={handleGenerate}
+            loading={loading}
+            ingredients={ingredients}
+          />
             </div>
           )}
         </div>

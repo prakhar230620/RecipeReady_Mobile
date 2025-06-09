@@ -1,16 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import type { Recipe } from "@/lib/types"
 import { useRecipes } from "@/context/recipe-context"
-import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Share2, Clock, Users, Star, ChevronDown, ChevronUp, Printer, Heart, Zap, ChefHat } from "lucide-react"
-import { FacebookShareButton, WhatsappShareButton, TelegramShareButton, EmailShareButton, FacebookIcon, WhatsappIcon, TelegramIcon, EmailIcon } from 'react-share'
-import { toast } from "sonner"
-import { addEmojisToIngredients, addEmojisToInstructions, addEmojisToText } from "@/lib/emoji-mapper"
+import { Heart, Clock, Users, ChefHat, Printer, Share2, Star, ChevronDown, ChevronUp, Zap, FileText } from "lucide-react"
+import Image from "next/image"
+import { addEmojisToIngredients, addEmojisToInstructions } from "@/lib/emoji-mapper"
+import toast from "react-hot-toast"
+import { useAuth } from "@/context/auth-context"
+// @ts-ignore
+import html2pdf from "html2pdf.js"
 
 interface RecipeCardProps {
   recipe: Recipe
@@ -26,21 +28,14 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
 
   const handleFavoriteToggle = async () => {
     if (!user) {
-      toast.error("Please sign in to save favorites");
-      return;
+      toast.error("Please sign in to save favorites")
+      return
     }
 
-    try {
-      if (isRecipeFavorite) {
-        await removeFromFavorites(recipe.id);
-        toast.success("Removed from favorites");
-      } else {
-        await addToFavorites(recipe);
-        toast.success("Added to favorites");
-      }
-    } catch (error) {
-      console.error("Error updating favorites:", error);
-      toast.error("Failed to update favorites");
+    if (isRecipeFavorite) {
+      await removeFromFavorites(recipe.id)
+    } else {
+      await addToFavorites(recipe)
     }
   }
 
@@ -75,15 +70,15 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
             <div class="ingredients">
               <h2>Ingredients</h2>
               <ul>
-                ${recipe.ingredients
-                  .map((ingredient) => `<li>${addEmojisToText(ingredient)}</li>`)
+                ${addEmojisToIngredients(recipe.ingredients)
+                  .map((ingredient) => `<li>${ingredient}</li>`)
                   .join("")}
               </ul>
             </div>
             <h2>Instructions</h2>
             <ol>
-              ${recipe.instructions
-                .map((instruction) => `<li>${addEmojisToText(instruction)}</li>`)
+              ${addEmojisToInstructions(recipe.instructions)
+                .map((instruction) => `<li>${instruction}</li>`)
                 .join("")}
             </ol>
             ${
@@ -107,53 +102,192 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
     }
   }
 
-  const [showShareOptions, setShowShareOptions] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-  
-  // Set client-side state after mount
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-  
-  const shareUrl = isClient ? window.location.href : '';
-  const recipeText = `Check out this delicious ${recipe.title} recipe!`;
-  const recipeDetails = `*${recipe.title}*\n\n` +
-    `${recipe.description ? recipe.description + '\n\n' : ''}` +
-    `⏱️ Prep: ${recipe.prepTime} min | 🔥 Cook: ${recipe.cookTime} min\n` +
-    `👥 Serves: ${recipe.servings} | 📊 ${recipe.difficulty}`;
-
-  const handleShareClick = () => {
-    setShowShareOptions(!showShareOptions);
-  };
-
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      toast.success('Link copied to clipboard! 📋');
-      setShowShareOptions(false);
-    } catch (error) {
-      toast.error('Failed to copy link');
+  const handleSharePDF = async () => {
+    // Create a container for the PDF content
+    const pdfContainer = document.createElement('div')
+    
+    // Function to convert image URL to data URL to avoid CORS issues
+    const getImageAsDataURL = async (imageUrl: string) => {
+      return new Promise((resolve, reject) => {
+        const img = new window.Image(0, 0);
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0);
+          try {
+            const dataURL = canvas.toDataURL('image/jpeg', 0.98);
+            resolve(dataURL);
+          } catch (e) {
+            console.error('Error converting image to data URL:', e);
+            resolve(imageUrl); // Fallback to original URL if conversion fails
+          }
+        };
+        img.onerror = () => {
+          console.error('Error loading image for PDF');
+          resolve(null); // Return null if image can't be loaded
+        };
+        img.src = imageUrl;
+      });
+    };
+    
+    // Get image as data URL if it exists
+    let imageDataUrl = null;
+    if (recipe.image && !imageError) {
+      try {
+        toast.loading('Preparing image...');
+        imageDataUrl = await getImageAsDataURL(recipe.image);
+      } catch (error) {
+        console.error('Error preparing image:', error);
+        imageDataUrl = null;
+      } finally {
+        toast.dismiss();
+      }
     }
-  };
+    
+    // Create HTML content for PDF
+    pdfContainer.innerHTML = `
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 10px;">${recipe.title}</h1>
+        <p>${recipe.description}</p>
+        <div style="display: flex; gap: 20px; margin: 20px 0; flex-wrap: wrap;">
+          <span style="background: #f0f0f0; padding: 5px 10px; border-radius: 5px;">⏱️ Prep: ${recipe.prepTime} min</span>
+          <span style="background: #f0f0f0; padding: 5px 10px; border-radius: 5px;">🔥 Cook: ${recipe.cookTime} min</span>
+          <span style="background: #f0f0f0; padding: 5px 10px; border-radius: 5px;">👥 ${recipe.servings} servings</span>
+          <span style="background: #f0f0f0; padding: 5px 10px; border-radius: 5px;">📊 ${recipe.difficulty}</span>
+        </div>
+        ${imageDataUrl ? `<div style="text-align: center; margin: 20px 0;">
+          <img src="${imageDataUrl}" alt="${recipe.title}" style="max-width: 100%; max-height: 300px; object-fit: cover; border-radius: 8px;" />
+        </div>` : ''}
+        <div style="background: #f9f9f9; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #666; margin-top: 10px;">Ingredients</h2>
+          <ul style="line-height: 1.6;">
+            ${addEmojisToIngredients(recipe.ingredients)
+              .map((ingredient) => `<li style="margin-bottom: 8px;">${ingredient}</li>`)
+              .join("")}
+          </ul>
+        </div>
+        <h2 style="color: #666; margin-top: 30px;">Instructions</h2>
+        <ol style="line-height: 1.6;">
+          ${addEmojisToInstructions(recipe.instructions)
+            .map((instruction) => `<li style="margin-bottom: 8px;">${instruction}</li>`)
+            .join("")}
+        </ol>
+        ${
+          recipe.nutrition
+            ? `
+        <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin-top: 20px;">
+          <h2 style="color: #666; margin-top: 10px;">Nutrition Information (per serving)</h2>
+          <p><strong>Calories:</strong> ${recipe.nutrition.calories} kcal</p>
+          <p><strong>Protein:</strong> ${recipe.nutrition.protein}g</p>
+          <p><strong>Carbohydrates:</strong> ${recipe.nutrition.carbs}g</p>
+          <p><strong>Fat:</strong> ${recipe.nutrition.fat}g</p>
+        </div>
+        `
+            : ""
+        }
+      </div>
+    `
+    
+    // Temporarily append to document to render images
+    pdfContainer.style.position = 'absolute'
+    pdfContainer.style.left = '-9999px'
+    document.body.appendChild(pdfContainer)
+    
+    // Configure PDF options with better settings for images
+    const options = {
+      margin: 10,
+      filename: `${recipe.title.replace(/\s+/g, '-').toLowerCase()}-recipe.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true,
+        allowTaint: true,
+        logging: true,
+        letterRendering: true,
+        imageTimeout: 0 // Wait indefinitely for images to load
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }
+    
+    try {
+      // Generate PDF
+      toast.loading('Generating PDF...')
+      
+      // Wait a moment to ensure images are fully rendered
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Generate PDF as blob instead of saving directly
+      const pdfBlob = await html2pdf()
+        .from(pdfContainer)
+        .set(options)
+        .outputPdf('blob')
+      
+      toast.dismiss()
+      
+      // Try to share the PDF file
+      if (navigator.share && navigator.canShare) {
+        const file = new File([pdfBlob], options.filename, { type: 'application/pdf' })
+        
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: recipe.title,
+            text: `${recipe.title} Recipe`,
+            files: [file]
+          })
+          toast.success('Recipe shared successfully! 📄')
+        } else {
+          // Fallback if file sharing not supported
+          const pdfUrl = URL.createObjectURL(pdfBlob)
+          const a = document.createElement('a')
+          a.href = pdfUrl
+          a.download = options.filename
+          a.click()
+          URL.revokeObjectURL(pdfUrl)
+          toast.success('PDF downloaded successfully! 📄')
+        }
+      } else {
+        // Fallback for browsers without Web Share API
+        const pdfUrl = URL.createObjectURL(pdfBlob)
+        const a = document.createElement('a')
+        a.href = pdfUrl
+        a.download = options.filename
+        a.click()
+        URL.revokeObjectURL(pdfUrl)
+        toast.success('PDF downloaded successfully! 📄')
+      }
+    } catch (error) {
+      console.error('Error with PDF:', error)
+      toast.dismiss()
+      toast.error('Failed to share PDF')
+    } finally {
+      // Clean up
+      document.body.removeChild(pdfContainer)
+    }
+  }
 
   const enhancedIngredients = addEmojisToIngredients(recipe.ingredients)
   const enhancedInstructions = addEmojisToInstructions(recipe.instructions)
-
-  if (!isClient) return null;
 
   return (
     <Card className="recipe-card fade-in print-friendly overflow-hidden mobile-card">
       <div className="relative h-56 bg-muted">
         {recipe.image && !imageError ? (
-          <img
-            src={recipe.image}
+          <Image
+            src={recipe.image || "/placeholder.svg"}
             alt={recipe.title}
-            className="object-cover w-full h-full"
+            fill
+            className="object-cover"
             crossOrigin="anonymous"
             onError={() => setImageError(true)}
-            style={{ objectFit: 'cover' }}
           />
-        ) : null}
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
+            <ChefHat className="h-16 w-16 text-muted-foreground" />
+          </div>
+        )}
         <div className="absolute top-3 right-3 flex gap-2 no-print">
           <Button
             variant="secondary"
@@ -292,64 +426,11 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
           <Button variant="outline" size="icon" onClick={handlePrint} className="h-9 w-9 p-0 rounded-full">
             <Printer className="h-4 w-4" />
           </Button>
-          <div className="relative">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={handleShareClick} 
-              className="h-9 w-9 p-0 rounded-full"
-            >
-              <Share2 className="h-4 w-4" />
-            </Button>
-            {showShareOptions && (
-              <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 z-50 flex gap-2 border border-gray-200 dark:border-gray-700">
-                <FacebookShareButton 
-                  url={shareUrl}
-                  // @ts-ignore - quote prop works but isn't in the type definitions
-                  quote={recipe.title}
-                  className="focus:outline-none"
-                  onClick={() => setShowShareOptions(false)}
-                >
-                  <FacebookIcon size={32} round />
-                </FacebookShareButton>
-                <WhatsappShareButton
-                  url={shareUrl}
-                  title={recipeText}
-                  className="focus:outline-none"
-                  onClick={() => setShowShareOptions(false)}
-                >
-                  <WhatsappIcon size={32} round />
-                </WhatsappShareButton>
-                <TelegramShareButton
-                  url={shareUrl}
-                  title={recipeText}
-                  className="focus:outline-none"
-                  onClick={() => setShowShareOptions(false)}
-                >
-                  <TelegramIcon size={32} round />
-                </TelegramShareButton>
-                <EmailShareButton
-                  url={shareUrl}
-                  subject={`Check out this recipe: ${recipe.title}`}
-                  body={recipeDetails}
-                  className="focus:outline-none"
-                  onClick={() => setShowShareOptions(false)}
-                >
-                  <EmailIcon size={32} round />
-                </EmailShareButton>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleCopyLink}
-                  className="h-8 px-2 text-xs"
-                >
-                  Copy Link
-                </Button>
-              </div>
-            )}
-          </div>
+          <Button variant="outline" size="icon" onClick={handleSharePDF} className="h-9 w-9 p-0 rounded-full">
+            <Share2 className="h-4 w-4" />
+          </Button>
         </div>
       </CardFooter>
     </Card>
-  );
+  )
 }

@@ -7,16 +7,28 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { User, LogOut, Settings, Moon, Sun, Info, Bell, Edit, Save, X } from 'lucide-react'
+import { User, LogOut, Settings, Moon, Sun, Info, Bell, Edit, Save, X, Trash2, AlertTriangle } from 'lucide-react'
 import { useTheme } from '@/components/theme-provider'
 import { Switch } from '@/components/ui/switch'
 import toast from 'react-hot-toast'
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function ProfilePage() {
   const { data: session } = useSession()
   const { theme, setTheme } = useTheme()
   const [editing, setEditing] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [userProfile, setUserProfile] = useState({
     fullName: '',
     email: '',
@@ -25,6 +37,9 @@ export default function ProfilePage() {
     newPassword: '',
     confirmPassword: ''
   })
+  
+  // Check if the current user is admin
+  const isAdmin = session?.user?.email === 'toolminesai@gmail.com'
 
   useEffect(() => {
     if (session?.user) {
@@ -108,6 +123,34 @@ export default function ProfilePage() {
     await signOut({ callbackUrl: '/auth/signin' })
   }
 
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true)
+    try {
+      const response = await fetch('/api/user/delete-account', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast.success('Account scheduled for deletion. You will be signed out.')
+        // Sign out after successful deletion request
+        setTimeout(() => {
+          signOut({ callbackUrl: '/auth/signin' })
+        }, 2000)
+      } else {
+        toast.error(data.error || 'Failed to delete account')
+        setDeleteLoading(false)
+      }
+    } catch (error) {
+      toast.error('Something went wrong')
+      setDeleteLoading(false)
+    }
+  }
+
   if (!session?.user) {
     return null
   }
@@ -183,7 +226,7 @@ export default function ProfilePage() {
               />
             </div>
 
-            {editing && session.user.email && !session.user.image && (
+            {editing && session.user.email && !session.user.image && !isAdmin && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="currentPassword">Current Password</Label>
@@ -283,12 +326,59 @@ export default function ProfilePage() {
             <Link href="/terms-of-service" className="text-primary block">
               Terms of Service
             </Link>
-            <a href="#" className="text-primary block">
-              Contact Support
-            </a>
           </div>
         </CardContent>
       </Card>
+
+      {!isAdmin && (
+        <Card className="mobile-card border-destructive/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Delete Account
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>
+              Permanently delete your account and all associated data. This action cannot be undone.
+            </p>
+            <p className="text-muted-foreground">
+              Note: Your data will be retained for 30 days before permanent deletion. If you sign up again with the same email within this period, your account can be restored.
+            </p>
+            <div className="pt-4">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full rounded-full">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Account
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-destructive" />
+                      Delete Account
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete your account? Your data will be retained for 30 days before permanent deletion. After that, all your data will be permanently removed and cannot be recovered.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteAccount}
+                      disabled={deleteLoading}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {deleteLoading ? 'Deleting...' : 'Delete Account'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

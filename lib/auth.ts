@@ -14,12 +14,14 @@ declare module 'next-auth' {
       email?: string | null
       image?: string | null
       mobile?: string | null
+      isAdmin?: boolean
     }
   }
 
   interface User {
     id?: string
     mobile?: string
+    isAdmin?: boolean
   }
 }
 
@@ -41,9 +43,22 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req): Promise<User | null> {
         if (!credentials?.email || !credentials?.password) {
           return null
+        }
+
+        // Special handling for admin credentials
+        const isAdmin = credentials.email === 'toolminesai@gmail.com'
+        if (isAdmin && credentials.password === 'pm61.207') {
+          return {
+            id: 'admin-id',
+            email: credentials.email,
+            name: 'Admin User',
+            image: null,
+            mobile: undefined,
+            isAdmin: true,
+          }
         }
 
         try {
@@ -115,6 +130,7 @@ export const authOptions: NextAuthOptions = {
             session.user.id = user._id.toString()
             session.user.name = user.fullName
             session.user.mobile = user.mobile
+            session.user.isAdmin = token.isAdmin as boolean | undefined
           }
         } catch (error) {
           console.error('Session error:', error)
@@ -125,6 +141,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
+        token.isAdmin = user.isAdmin
       }
       return token
     }

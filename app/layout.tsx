@@ -11,6 +11,7 @@ import MobileNav from "@/components/mobile-nav"
 import Footer from "@/components/footer"
 import PwaInstallPrompt from "@/components/pwa-install-prompt"
 import AuthGuard from "@/components/auth-guard"
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -75,6 +76,7 @@ export default function RootLayout({
             </RecipeProvider>
           </AuthProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   )
