@@ -115,14 +115,17 @@ export default function FilterPanel({
             </span>
           )}
         </Label>
-        <DropdownMenu>
+        <div className="flex w-full">
+          <Button variant="outline" className="flex-1 rounded-r-none justify-start">
+            Select Cook Time
+          </Button>
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              Select Cook Time
-              <ChevronDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <Button variant="outline" className="px-2 rounded-l-none border-l-0">
+              <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[200px]" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DropdownMenuContent className="w-[200px]">
             <DropdownMenuCheckboxItem
               checked={isSelected('cookTime', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('cookTime', 'any', checked === true)}
@@ -155,6 +158,7 @@ export default function FilterPanel({
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -166,14 +170,17 @@ export default function FilterPanel({
             </span>
           )}
         </Label>
-        <DropdownMenu>
+        <div className="flex w-full">
+          <Button variant="outline" className="flex-1 rounded-r-none justify-start">
+            Select Dietary Options
+          </Button>
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              Select Dietary Options
-              <ChevronDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <Button variant="outline" className="px-2 rounded-l-none border-l-0">
+              <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[200px]" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DropdownMenuContent className="w-[200px]">
             <DropdownMenuCheckboxItem
               checked={isSelected('dietary', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('dietary', 'any', checked === true)}
@@ -242,6 +249,7 @@ export default function FilterPanel({
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -253,14 +261,17 @@ export default function FilterPanel({
             </span>
           )}
         </Label>
-        <DropdownMenu>
+        <div className="flex w-full">
+          <Button variant="outline" className="flex-1 rounded-r-none justify-start">
+            Select Cuisine
+          </Button>
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              Select Cuisine
-              <ChevronDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <Button variant="outline" className="px-2 rounded-l-none border-l-0">
+              <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[200px]" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DropdownMenuContent className="w-[200px]">
             <DropdownMenuCheckboxItem
               checked={isSelected('cuisine', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('cuisine', 'any', checked === true)}
@@ -329,6 +340,7 @@ export default function FilterPanel({
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -340,14 +352,17 @@ export default function FilterPanel({
             </span>
           )}
         </Label>
-        <DropdownMenu>
+        <div className="flex w-full">
+          <Button variant="outline" className="flex-1 rounded-r-none justify-start">
+            Select Spice Level
+          </Button>
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              Select Spice Level
-              <ChevronDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <Button variant="outline" className="px-2 rounded-l-none border-l-0">
+              <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[200px]" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DropdownMenuContent className="w-[200px]">
             <DropdownMenuCheckboxItem
               checked={isSelected('spiceLevel', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('spiceLevel', 'any', checked === true)}
@@ -380,6 +395,7 @@ export default function FilterPanel({
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -391,14 +407,17 @@ export default function FilterPanel({
             </span>
           )}
         </Label>
-        <DropdownMenu>
+        <div className="flex w-full">
+          <Button variant="outline" className="flex-1 rounded-r-none justify-start">
+            Select Meal Types
+          </Button>
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              Select Meal Types
-              <ChevronDownIcon className="ml-2 h-4 w-4" />
+            <Button variant="outline" className="px-2 rounded-l-none border-l-0">
+              <ChevronDownIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
             <DropdownMenuCheckboxItem
               checked={isSelected('mealType', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('mealType', 'any', checked === true)}
@@ -455,6 +474,7 @@ export default function FilterPanel({
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -466,14 +486,17 @@ export default function FilterPanel({
             </span>
           )}
         </Label>
-        <DropdownMenu>
+        <div className="flex w-full">
+          <Button variant="outline" className="flex-1 rounded-r-none justify-start">
+            Select Difficulty
+          </Button>
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              Select Difficulty
-              <ChevronDownIcon className="ml-2 h-4 w-4" />
+            <Button variant="outline" className="px-2 rounded-l-none border-l-0">
+              <ChevronDownIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
             <DropdownMenuCheckboxItem
               checked={isSelected('difficulty', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('difficulty', 'any', checked === true)}
@@ -500,6 +523,7 @@ export default function FilterPanel({
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -511,14 +535,17 @@ export default function FilterPanel({
             </span>
           )}
         </Label>
-        <DropdownMenu>
+        <div className="flex w-full">
+          <Button variant="outline" className="flex-1 rounded-r-none justify-start">
+            Select Health Focus
+          </Button>
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              Select Health Focus
-              <ChevronDownIcon className="ml-2 h-4 w-4" />
+            <Button variant="outline" className="px-2 rounded-l-none border-l-0">
+              <ChevronDownIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
             <DropdownMenuCheckboxItem
               checked={isSelected('healthProfile', 'any')}
               onCheckedChange={(checked) => updateArrayFilter('healthProfile', 'any', checked === true)}
@@ -569,6 +596,7 @@ export default function FilterPanel({
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       {/* Create Recipe Button */}

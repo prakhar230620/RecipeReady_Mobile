@@ -18,12 +18,22 @@ export async function middleware(request: NextRequest) {
     }
   }
   
-  // Redirect admin users from home page to admin panel after Google sign-in
+  // Redirect admin users from home page to admin panel
   if (request.nextUrl.pathname === '/' && isAdmin) {
-    // Only redirect if coming from a sign-in (check referrer or other indicators)
+    // Get the mobile nav click info from cookie if available
+    const adminNavClicked = request.cookies.get('admin_nav_clicked')?.value === 'true'
     const referrer = request.headers.get('referer') || ''
-    if (referrer.includes('/auth/signin') || referrer.includes('/api/auth/callback/google')) {
-      return NextResponse.redirect(new URL('/admin', request.url))
+    
+    // Redirect if coming from sign-in or if admin nav was clicked
+    if (referrer.includes('/auth/signin') || 
+        referrer.includes('/api/auth/callback/google') ||
+        adminNavClicked) {
+      // Clear the cookie if it was set
+      const response = NextResponse.redirect(new URL('/admin', request.url))
+      if (adminNavClicked) {
+        response.cookies.delete('admin_nav_clicked')
+      }
+      return response
     }
   }
   

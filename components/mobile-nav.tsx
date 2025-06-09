@@ -1,53 +1,76 @@
 "use client"
 
+import React from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Home, Heart, User, Mail } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useAuth } from "@/context/auth-context"
+import { Home as HomeIcon, Heart as HeartIcon, User as UserIcon, Mail as MailIcon } from "lucide-react"
+import { cn } from "../lib/utils"
+import { useAuth } from "../context/auth-context"
+import { setCookie } from "cookies-next"
 
-export default function MobileNav() {
+export function MobileNav() {
   const pathname = usePathname()
   const { user } = useAuth()
-  console.log("User object in MobileNav:", user)
+  const isAdmin = user?.isAdmin
 
-  const navItems = [
+  // Define the type for route items
+  type RouteItem = {
+    href: string;
+    label: string;
+    active: boolean;
+    icon: React.ComponentType<any>;
+    onClick?: () => void;
+  };
+
+  const routes: RouteItem[] = [
     {
-      name: "Home",
       href: "/",
-      icon: Home,
+      label: "Home",
+      active: pathname === "/",
+      icon: HomeIcon,
     },
     {
-      name: "Favorites",
       href: "/favorites",
-      icon: Heart,
+      label: "Favorites",
+      active: pathname === "/favorites",
+      icon: HeartIcon,
     },
     {
-      name: "Profile",
       href: "/profile",
-      icon: User,
+      label: "Profile",
+      active: pathname === "/profile",
+      icon: UserIcon,
     },
-    ...(user?.isAdmin
-      ? [
-          {
-            name: "Admin",
-            href: "/admin",
-            icon: Mail,
-          },
-        ]
-      : []),
   ]
-  console.log("Final navItems array:", navItems)
+
+  // Add admin route if user is admin
+  if (isAdmin) {
+    routes.push({
+      href: "/admin",
+      label: "Admin",
+      active: pathname === "/admin",
+      icon: MailIcon,
+      onClick: () => {
+        // Set a cookie to indicate admin nav was clicked
+        setCookie('admin_nav_clicked', 'true', { maxAge: 30 }); // 30 seconds expiry
+      }
+    });
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-t flex justify-around items-center h-16 no-print">
-      {navItems.map((item) => {
+      {routes.map((item) => {
         const isActive = pathname === item.href || (item.href === "/" && pathname.startsWith("/recipe/"))
         return (
-          <Link key={item.name} href={item.href} className={cn("flex flex-col items-center justify-center w-full py-2", isActive && "text-primary")}>
+          <Link 
+            key={item.label} 
+            href={item.href} 
+            onClick={item.onClick} 
+            className={cn("flex flex-col items-center justify-center w-full py-2", isActive && "text-primary")}
+          >
             <item.icon className={cn("h-6 w-6", isActive ? "text-primary" : "text-muted-foreground")} />
             <span className={cn("text-xs", isActive ? "font-medium text-primary" : "text-muted-foreground")}>
-              {item.name}
+              {item.label}
             </span>
           </Link>
         )
