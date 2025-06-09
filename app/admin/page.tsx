@@ -55,13 +55,6 @@ export default function AdminPage() {
         toast.error('Unauthorized access')
       } else {
         fetchEmailHistory()
-        
-        // Clean up URL query parameter if it exists
-        // This prevents issues with browser history and refreshing
-        if (window.location.search.includes('source=nav')) {
-          // Replace current URL without the query parameter
-          window.history.replaceState({}, '', '/admin')
-        }
       }
     } else if (status === 'unauthenticated') {
       router.push('/auth/signin?callbackUrl=/admin')

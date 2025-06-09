@@ -13,28 +13,19 @@ export async function middleware(request: NextRequest) {
     if (!token?.email || !isAdmin) {
       // Redirect to regular login page with callback URL
       const url = new URL('/auth/signin', request.url)
-      url.searchParams.set('callbackUrl', request.nextUrl.pathname)
+      url.searchParams.set('callbackUrl', '/admin')
       return NextResponse.redirect(url)
     }
+    // If user is authenticated and authorized, allow access to admin page
+    return NextResponse.next()
   }
   
-  // Redirect admin users based on URL parameters or referrer
-  if (isAdmin) {
-    // Check for source=nav query parameter in the URL
-    const sourceParam = request.nextUrl.searchParams.get('source')
+  // For admin users, redirect to admin page after login
+  if (isAdmin && request.nextUrl.pathname === '/') {
     const referrer = request.headers.get('referer') || ''
     
-    // If the URL has source=nav parameter, preserve it for the admin page
-    // This works in both PWA and regular web contexts
-    if (sourceParam === 'nav') {
-      // We don't need to redirect here as the URL already points to /admin
-      // Just let the request continue to the admin page
-      return NextResponse.next()
-    }
-    
     // Redirect from home page after login
-    if (request.nextUrl.pathname === '/' && 
-        (referrer.includes('/auth/signin') || referrer.includes('/api/auth/callback/google'))) {
+    if (referrer.includes('/auth/signin') || referrer.includes('/api/auth/callback/google')) {
       return NextResponse.redirect(new URL('/admin', request.url))
     }
   }

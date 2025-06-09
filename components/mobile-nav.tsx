@@ -46,12 +46,11 @@ export function MobileNav() {
   // Add admin route if user is admin
   if (isAdmin) {
     routes.push({
-      // Use query parameter instead of cookie for better PWA compatibility
-      href: "/admin?source=nav",
+      // Direct link to admin page without query parameters
+      href: "/admin",
       label: "Admin",
       active: pathname === "/admin",
       icon: MailIcon
-      // No onClick handler needed as we're using URL parameter approach
     });
   }
 
