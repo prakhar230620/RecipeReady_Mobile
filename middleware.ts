@@ -18,22 +18,26 @@ export async function middleware(request: NextRequest) {
     }
   }
   
-  // Redirect admin users from home page to admin panel
-  if (request.nextUrl.pathname === '/' && isAdmin) {
+  // Redirect admin users based on cookie or referrer
+  if (isAdmin) {
     // Get the mobile nav click info from cookie if available
     const adminNavClicked = request.cookies.get('admin_nav_clicked')?.value === 'true'
     const referrer = request.headers.get('referer') || ''
     
-    // Redirect if coming from sign-in or if admin nav was clicked
-    if (referrer.includes('/auth/signin') || 
-        referrer.includes('/api/auth/callback/google') ||
-        adminNavClicked) {
-      // Clear the cookie if it was set
+    // Check for admin navigation cookie first (works better in PWA)
+    if (adminNavClicked) {
+      // Always redirect to admin page when cookie is present, regardless of current path
+      // This is especially important for PWA contexts where referrer might not work properly
       const response = NextResponse.redirect(new URL('/admin', request.url))
-      if (adminNavClicked) {
-        response.cookies.delete('admin_nav_clicked')
-      }
+      // Clear the cookie after redirection
+      response.cookies.delete('admin_nav_clicked')
       return response
+    }
+    
+    // Fallback to referrer-based redirection for non-PWA contexts
+    if (request.nextUrl.pathname === '/' && 
+        (referrer.includes('/auth/signin') || referrer.includes('/api/auth/callback/google'))) {
+      return NextResponse.redirect(new URL('/admin', request.url))
     }
   }
   

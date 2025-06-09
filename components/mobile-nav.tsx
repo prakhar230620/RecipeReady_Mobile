@@ -52,7 +52,7 @@ export function MobileNav() {
       icon: MailIcon,
       onClick: () => {
         // Set a cookie to indicate admin nav was clicked
-        setCookie('admin_nav_clicked', 'true', { maxAge: 30 }); // 30 seconds expiry
+        setCookie('admin_nav_clicked', 'true', { maxAge: 3600, path: '/' }); // 1 hour expiry, ensure path is set
       }
     });
   }
