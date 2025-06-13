@@ -15,7 +15,7 @@ const DEFAULT_RESET_TIME_MS = 60000;
 
 // Fallback API keys in case environment variables are not set
 const FALLBACK_GROQ_API_KEYS = [
-  process.env.GROQ_API_KEY || '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',
+  process.env.GROQ_API_KEY || '',
   
 ];
 
