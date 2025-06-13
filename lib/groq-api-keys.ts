@@ -15,13 +15,17 @@ const DEFAULT_RESET_TIME_MS = 60000;
 
 // Fallback API keys in case environment variables are not set
 // Add multiple fallback keys here to ensure the application works even if some keys are rate limited
-const FALLBACK_GROQ_API_KEYS = process.env.GROQ_API_KEYS?.split(',') || []
+// IMPORTANT: Hardcoding keys directly in the code is NOT recommended for production environments.
+// For better security, use environment variables (e.g., in a .env file) and ensure .env is in .gitignore.
+const FALLBACK_GROQ_API_KEYS = [
+  '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', // Add more keys as needed
+];
 
 /**
  * Get all available API keys
  * @returns Array of all API keys
  */
-export function getAllGroqApiKeys(): string[] {
+export function getAllGroqApiKeys(): string {
   // First try to get keys from environment variables
   const envKeys = [];
   
@@ -40,13 +44,13 @@ export function getAllGroqApiKeys(): string[] {
     const validEnvKeys = envKeys.filter(key => key && key.trim() !== '' && key.startsWith('gsk_'));
     if (validEnvKeys.length > 0) {
       console.log(`Using ${validEnvKeys.length} environment variable API keys`);
-      return validEnvKeys;
+      return validEnvKeys[0] || '';
     }
   }
 
   // Otherwise use fallback keys
   console.log('Using fallback API keys');
-  return FALLBACK_GROQ_API_KEYS.filter(key => key && key.trim() !== '' && key.startsWith('gsk_'));
+  return FALLBACK_GROQ_API_KEYS.filter(key => key && key.trim() !== '' && key.startsWith('gsk_'))[0] || '';
 }
 
 // Check and reset any rate-limited keys that have passed their reset time
@@ -84,7 +88,7 @@ export function getGroqApiKey(): string {
   }
 
   // Find the next available key
-  const availableKeys = allKeys.filter(key => !rateLimitedKeys.has(key));
+  const availableKeys = [allKeys].filter(key => !rateLimitedKeys.has(key));
   
   if (availableKeys.length > 0) {
     // Use the next available key
