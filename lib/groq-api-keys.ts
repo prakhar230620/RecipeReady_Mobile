@@ -18,7 +18,7 @@ const DEFAULT_RESET_TIME_MS = 60000;
 // IMPORTANT: Hardcoding keys directly in the code is NOT recommended for production environments.
 // For better security, use environment variables (e.g., in a .env file) and ensure .env is in .gitignore.
 const FALLBACK_GROQ_API_KEYS = [
-  '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', // Add more keys as needed
+  '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', // Add more keys as needed
 ];
 
 /**
