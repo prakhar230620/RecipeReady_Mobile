@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import type { Recipe, RecipeFilters } from "@/lib/types"
-import { getGroqApiKey, markKeyAsRateLimited } from "@/lib/groq-api-keys"
+import { getGroqApiKey, markKeyAsRateLimited, getAllGroqApiKeys } from "@/lib/groq-api-keys"
 import { getGeminiApiKey, markGeminiKeyAsRateLimited } from "@/lib/gemini-api-keys"
 
 export const dynamic = 'force-dynamic'
@@ -20,6 +20,13 @@ export async function POST(request: NextRequest) {
     
     // Get the next available API key from the rotation system
     const currentApiKey = getGroqApiKey()
+    
+    // Check if we have a valid API key
+    if (!currentApiKey || currentApiKey.trim() === '') {
+      console.error("No valid Groq API key available. Falling back to mock recipe.")
+      const mockRecipe = await createMockRecipeWithImage(ingredients, filters, userLanguage)
+      return NextResponse.json({ recipe: mockRecipe })
+    }
 
     const prompt = buildNaturalLanguagePrompt(ingredients, filters)
 
@@ -34,7 +41,18 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.`,
+            content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.
+
+IMPORTANT RULES:
+1. ONLY use the ingredients provided by the user - do not add any additional ingredients that weren't mentioned
+2. If the user specifies a recipe name or describes a dish in natural language, create that exact dish
+3. Respond in the same language the user used for their request
+4. Include relevant emojis for each ingredient in the ingredients list
+5. Include emojis for cooking instruments and flow in the instructions
+6. Calculate accurate nutritional information based on the exact ingredients and portions
+7. Provide detailed, step-by-step instructions with precise measurements, temperatures, and timing
+8. Strictly adhere to any dietary restrictions or preferences mentioned
+9. If the user provides specific customization options (meal type, cuisine, etc.), follow them exactly`,
           },
           {
             role: "user",
@@ -51,14 +69,168 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`Groq API error: ${response.status} ${response.statusText}`, errorText)
+      console.error(`Request body:`, JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: [
+          {
+            role: "system",
+            content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.`,
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 2500,
+        top_p: 1,
+        stream: false,
+      }))
       
       // Mark the current key as rate limited if we get a 429 error
       if (response.status === 429) {
         console.warn(`API key rate limited: ${currentApiKey.substring(0, 10)}...`)
         markKeyAsRateLimited(currentApiKey)
+      } else if (response.status === 401) {
+        // Mark the key as rate limited if it's unauthorized (invalid key)
+        console.warn(`API key unauthorized (invalid): ${currentApiKey.substring(0, 10)}...`)
+        markKeyAsRateLimited(currentApiKey)
       }
 
-      // Return mock recipe as fallback
+      // Try with a different API key immediately if available
+      const newApiKey = getGroqApiKey();
+      if (newApiKey !== currentApiKey && newApiKey !== "") {
+        console.log("Retrying with a different API key...")
+        const retryResponse = await fetch(GROQ_API_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${newApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-8b-instant",
+            messages: [
+              {
+                role: "system",
+                content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.`,
+              },
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 2500,
+            top_p: 1,
+            stream: false,
+          }),
+        })
+
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json()
+          const retryRecipeText = retryData.choices?.[0]?.message?.content
+          if (retryRecipeText) {
+            // Process the successful retry response
+            let cleanedText = retryRecipeText.trim()
+            if (cleanedText.includes("```json")) {
+              cleanedText = cleanedText.split("```json")[1].split("```")[0].trim()
+            } else if (cleanedText.includes("```")) {
+              cleanedText = cleanedText.split("```")[1].split("```")[0].trim()
+            }
+            try {
+              const recipe = JSON.parse(cleanedText)
+              recipe.id = generateRecipeId()
+              if (!recipe.ingredients.length || !recipe.instructions.length) {
+                throw new Error("Incomplete recipe data")
+              }
+              console.log("Generated recipe with retry:", recipe)
+              return NextResponse.json({ recipe })
+            } catch (parseError) {
+              console.error("Failed to parse recipe JSON from retry:", parseError)
+            }
+          }
+        }
+      }
+
+      // Try with all available API keys before falling back to mock recipe
+      const allKeys = getAllGroqApiKeys();
+      
+      for (const apiKey of allKeys) {
+        if (apiKey === currentApiKey || apiKey === newApiKey || !apiKey || apiKey.trim() === '') continue; // Skip keys we already tried or empty keys
+        
+        console.log("Trying with another API key...")
+        const retryResponse = await fetch(GROQ_API_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-8b-instant",
+            messages: [
+              {
+                role: "system",
+                content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.`,
+              },
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 2500,
+            top_p: 1,
+            stream: false,
+          }),
+        });
+        
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          const retryRecipeText = retryData.choices?.[0]?.message?.content;
+          
+          if (retryRecipeText) {
+            // Process the successful retry response
+            let cleanedText = retryRecipeText.trim();
+            if (cleanedText.includes("```json")) {
+              cleanedText = cleanedText.split("```json")[1].split("```")[0].trim();
+            } else if (cleanedText.includes("```")) {
+              cleanedText = cleanedText.split("```")[1].split("```")[0].trim();
+            }
+            
+            try {
+              const recipe = JSON.parse(cleanedText);
+              recipe.id = generateRecipeId();
+              
+              // Generate accurate image for the recipe
+              const imageUrl = await generateAccurateRecipeImage(
+                recipe.title,
+                recipe.description,
+                recipe.cuisine,
+              );
+              
+              const fullRecipe = {
+                ...recipe,
+                image: imageUrl,
+                nutrition: calculateAccurateNutrition(recipe, filters),
+              };
+              
+              if (!fullRecipe.ingredients.length || !fullRecipe.instructions.length) {
+                throw new Error("Incomplete recipe data");
+              }
+              
+              console.log("Generated recipe with retry:", fullRecipe);
+              return NextResponse.json({ recipe: fullRecipe });
+            } catch (parseError) {
+              console.error("Failed to parse recipe JSON from retry:", parseError);
+            }
+          }
+        } else if (retryResponse.status === 429 || retryResponse.status === 401) {
+          // Mark this key as rate limited
+          markKeyAsRateLimited(apiKey);
+        }
+      }
+      
+      // Return mock recipe as fallback if all retries failed
       const mockRecipe = await createMockRecipeWithImage(ingredients, filters, userLanguage)
       return NextResponse.json({ recipe: mockRecipe })
     }
@@ -68,6 +240,85 @@ export async function POST(request: NextRequest) {
 
     if (!recipeText) {
       console.error("No recipe content received from Groq API")
+      
+      // Try with all available API keys before falling back to mock recipe
+      const allKeys = getAllGroqApiKeys();
+      
+      for (const apiKey of allKeys) {
+        if (apiKey === currentApiKey || !apiKey || apiKey.trim() === '') continue; // Skip the key we already tried or empty keys
+        
+        console.log("Trying with another API key for empty response...")
+        const retryResponse = await fetch(GROQ_API_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-8b-instant",
+            messages: [
+              {
+                role: "system",
+                content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.`,
+              },
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 2500,
+            top_p: 1,
+            stream: false,
+          }),
+        });
+        
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          const retryRecipeText = retryData.choices?.[0]?.message?.content;
+          
+          if (retryRecipeText) {
+            // Process the successful retry response
+            let cleanedText = retryRecipeText.trim();
+            if (cleanedText.includes("```json")) {
+              cleanedText = cleanedText.split("```json")[1].split("```")[0].trim();
+            } else if (cleanedText.includes("```")) {
+              cleanedText = cleanedText.split("```")[1].split("```")[0].trim();
+            }
+            
+            try {
+              const recipe = JSON.parse(cleanedText);
+              recipe.id = generateRecipeId();
+              
+              // Generate accurate image for the recipe
+              const imageUrl = await generateAccurateRecipeImage(
+                recipe.title,
+                recipe.description,
+                recipe.cuisine,
+              );
+              
+              const fullRecipe = {
+                ...recipe,
+                image: imageUrl,
+                nutrition: calculateAccurateNutrition(recipe, filters),
+              };
+              
+              if (!fullRecipe.ingredients.length || !fullRecipe.instructions.length) {
+                throw new Error("Incomplete recipe data");
+              }
+              
+              console.log("Generated recipe with retry after empty response:", fullRecipe);
+              return NextResponse.json({ recipe: fullRecipe });
+            } catch (parseError) {
+              console.error("Failed to parse recipe JSON from retry after empty response:", parseError);
+            }
+          }
+        } else if (retryResponse.status === 429 || retryResponse.status === 401) {
+          // Mark this key as rate limited
+          markKeyAsRateLimited(apiKey);
+        }
+      }
+      
       const mockRecipe = await createMockRecipeWithImage(ingredients, filters, userLanguage)
       return NextResponse.json({ recipe: mockRecipe })
     }
@@ -85,13 +336,34 @@ export async function POST(request: NextRequest) {
     // Parse the JSON response
     let recipe: Recipe
     try {
-      const parsedRecipe = JSON.parse(cleanedText)
+      // Try to parse the JSON, handling potential errors
+      let parsedRecipe;
+      try {
+        parsedRecipe = JSON.parse(cleanedText);
+        console.log("Successfully parsed recipe JSON");
+      } catch (jsonError) {
+        console.error("Initial JSON parse error:", jsonError);
+        
+        // Try to fix common JSON formatting issues
+        const fixedJson = cleanedText
+          .replace(/\'|\'/g, '"') // Replace single quotes with double quotes
+          .replace(/\,\s*\}/g, '}') // Remove trailing commas in objects
+          .replace(/\,\s*\]/g, ']'); // Remove trailing commas in arrays
+          
+        try {
+          parsedRecipe = JSON.parse(fixedJson);
+          console.log("Successfully parsed recipe JSON after fixing format");
+        } catch (fixedJsonError) {
+          console.error("Failed to parse even after fixing format:", fixedJsonError);
+          throw fixedJsonError;
+        }
+      }
 
       // Generate accurate image for the recipe using Gemini
       const imageUrl = await generateAccurateRecipeImage(
-        parsedRecipe.title,
-        parsedRecipe.description,
-        parsedRecipe.cuisine,
+        parsedRecipe.title || `Recipe for ${ingredients}`,
+        parsedRecipe.description || `A delicious recipe with ${ingredients}`,
+        parsedRecipe.cuisine || (filters.cuisine?.length > 0 ? filters.cuisine[0] : "International"),
       )
 
       recipe = {
@@ -112,8 +384,11 @@ export async function POST(request: NextRequest) {
 
       // Validate that we have essential data
       if (!recipe.ingredients.length || !recipe.instructions.length) {
+        console.error("Recipe validation failed: missing ingredients or instructions");
         throw new Error("Incomplete recipe data")
       }
+      
+      console.log("Successfully created recipe object with all required fields");
     } catch (parseError) {
       console.error("Failed to parse recipe JSON:", parseError)
       console.error("Raw response:", recipeText)
@@ -170,7 +445,7 @@ export async function POST(request: NextRequest) {
 }
 
 function buildNaturalLanguagePrompt(ingredients: string, filters: RecipeFilters): string {
-  let prompt = `Create a delicious recipe using the following ingredients: ${ingredients}\n\n`
+  let prompt = `Create a delicious recipe using ONLY these ingredients: ${ingredients}\n\n`
 
   const requirements: string[] = []
 
@@ -179,19 +454,19 @@ function buildNaturalLanguagePrompt(ingredients: string, filters: RecipeFilters)
   }
 
   if (filters.dietary && filters.dietary.length > 0 && !filters.dietary.includes("any")) {
-    requirements.push(`Dietary preferences: ${filters.dietary.join(", ")}`)
+    requirements.push(`Dietary preferences: ${filters.dietary.join(", ")}. STRICTLY follow these dietary restrictions.`)
   }
 
   if (filters.cuisine && filters.cuisine.length > 0 && !filters.cuisine.includes("any")) {
-    requirements.push(`Cuisine: ${filters.cuisine.join(", ")}`)
+    requirements.push(`Cuisine: ${filters.cuisine.join(", ")}. Make an authentic dish from this cuisine.`)
   }
 
   if (filters.spiceLevel && filters.spiceLevel.length > 0 && !filters.spiceLevel.includes("any")) {
-    requirements.push(`Spice level: ${filters.spiceLevel.join(", ")}`)
+    requirements.push(`Spice level: ${filters.spiceLevel.join(", ")}. Adjust spiciness accordingly.`)
   }
 
   if (filters.mealType && filters.mealType.length > 0 && !filters.mealType.includes("any")) {
-    requirements.push(`Meal type: ${filters.mealType.join(", ")}`)
+    requirements.push(`Meal type: ${filters.mealType.join(", ")}. Create a recipe appropriate for this meal.`)
   }
 
   if (filters.cookTime && filters.cookTime.length > 0 && !filters.cookTime.includes("any")) {
@@ -205,30 +480,30 @@ function buildNaturalLanguagePrompt(ingredients: string, filters: RecipeFilters)
       return timeMap[time as keyof typeof timeMap] || time
     })
     
-    requirements.push(`Cooking time: ${cookTimes.join(" or ")}`)
+    requirements.push(`Cooking time: ${cookTimes.join(" or ")}. Ensure the recipe can be completed within this timeframe.`)
   }
 
   if (filters.difficulty && filters.difficulty.length > 0 && !filters.difficulty.includes("any")) {
-    requirements.push(`Difficulty level: ${filters.difficulty.join(", ")}`)
+    requirements.push(`Difficulty level: ${filters.difficulty.join(", ")}. Adjust complexity accordingly.`)
   }
 
   if (filters.healthProfile && filters.healthProfile.length > 0 && !filters.healthProfile.includes("any")) {
-    requirements.push(`Health focus: ${filters.healthProfile.join(", ")}`)
+    requirements.push(`Health focus: ${filters.healthProfile.join(", ")}. Optimize recipe for these health goals.`)
   }
 
-  if (requirements.length > 1) {
-    prompt += `Additional Requirements: ${requirements.join(", ")}\n\n`
+  if (requirements.length > 0) {
+    prompt += `IMPORTANT REQUIREMENTS (MUST FOLLOW):\n- ${requirements.join("\n- ")}\n\n`
   }
 
-  prompt += `INSTRUCTIONS:
-- Understand the user's natural language request completely
-- If they mentioned specific ingredients, use them as main components
-- If they asked for a specific dish, make that dish authentically
-- If they asked in another language, you can respond in that language or English
+  prompt += `INSTRUCTIONS:\n- Understand my request completely - I may be asking for a specific dish or providing ingredients for you to create something with
+- ONLY use the ingredients I've listed - do not add any additional ingredients
+- If I mentioned a specific dish name, make that dish authentically
+- If I asked in another language, respond in that same language
 - Be very specific with ingredient quantities (use exact measurements)
 - Include detailed cooking instructions with temperatures and timing
-- Calculate accurate nutritional information
-- Include relevant emojis in instructions for better visual appeal
+- Calculate accurate nutritional information based on the exact ingredients and portions
+- Add relevant emojis for each ingredient in the ingredients list (e.g., 🍎 Apple, 🧅 Onion)
+- Add emojis for cooking instruments and flow in the instructions (e.g., 🔪 for cutting, 🍳 for frying)
 - Make sure the recipe is practical and delicious
 - Ensure all ingredients are listed with proper measurements
 
@@ -236,8 +511,8 @@ Return ONLY a JSON object with this exact structure (no additional text):
 {
   "title": "Exact Recipe Name",
   "description": "Brief appetizing description of the dish",
-  "ingredients": ["1 cup specific ingredient", "2 tbsp exact ingredient with measurement", "..."],
-  "instructions": ["🔪 Step 1 with specific details and emoji", "🔥 Step 2 with temperature/timing and emoji", "..."],
+  "ingredients": ["🍎 1 cup specific ingredient", "🧅 2 tbsp exact ingredient with measurement", "..."],
+  "instructions": ["🔪 Step 1 with specific details and emoji", "🍳 Step 2 with temperature/timing and emoji", "..."],
   "prepTime": 15,
   "cookTime": 25,
   "difficulty": "${(filters.difficulty && filters.difficulty.length > 0 && !filters.difficulty.includes("any")) ? filters.difficulty[0] : 'Medium'}",
@@ -489,10 +764,15 @@ async function createMockRecipeWithImage(userInput: string, filters: RecipeFilte
     id: generateRecipeId(),
     title,
     description,
-    ingredients: ["Main ingredients as needed", "Seasonings to taste", "Cooking oil", "Fresh herbs for garnish"],
+    ingredients: [
+      "🥘 Main ingredients as needed", 
+      "🧂 Seasonings to taste", 
+      "🫒 Cooking oil", 
+      "🌿 Fresh herbs for garnish"
+    ],
     instructions: [
       "🔪 Prepare all ingredients by washing and chopping",
-      "🔥 Heat oil in a large pan over medium heat",
+      "🍳 Heat oil in a large pan over medium heat",
       "🥄 Add main ingredients and cook as needed",
       "🧂 Season with salt and pepper to taste",
       "🌿 Garnish with fresh herbs",
@@ -528,12 +808,20 @@ async function createFallbackRecipeWithImage(
     id: generateRecipeId(),
     title,
     description: "A delicious recipe created with your request",
-    ingredients: ["Main ingredients as needed", "Seasonings to taste", "Cooking oil", "Fresh herbs"],
+    ingredients: [
+      "🥘 Main ingredients as needed", 
+      "🧂 Seasonings to taste", 
+      "🫒 Cooking oil", 
+      "🌿 Fresh herbs for garnish"
+    ],
     instructions: [
-      "🔪 Prepare all ingredients",
-      "🔥 Cook according to your preference",
-      "🧂 Season to taste",
-      "🍽️ Serve and enjoy",
+      "🔪 Prepare all ingredients by washing and chopping",
+      "🍳 Heat oil in a pan over medium heat",
+      "🥄 Add ingredients in the correct order",
+      "🧂 Season with salt, pepper, and spices to taste",
+      "⏲️ Cook until done, monitoring temperature and time",
+      "🌿 Garnish with fresh herbs if desired",
+      "🍽️ Serve and enjoy your meal!",
     ],
     prepTime: 15,
     cookTime: 30,

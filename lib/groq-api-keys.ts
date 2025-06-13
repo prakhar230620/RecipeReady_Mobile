@@ -5,131 +5,111 @@
  * It provides a mechanism to cycle through available keys and allows time for rate-limited keys to reset.
  */
 
-// Array of GROQ API keys
-const GROQ_API_KEYS = [
-  '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',
-  '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',
-  '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',
-  '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',
-  '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',
-  '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',
-  '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',
-  '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',
-  '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',
-  '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',
-  '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',
-  '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'
+// Maps to track API key usage and rate limiting
+const rateLimitedKeys = new Set<string>();
+const rateLimitResetTimes = new Map<string, number>();
+const keyUsageTimestamps = new Map<string, number>();
+
+// Default reset time in milliseconds (60 seconds = 60000 ms)
+const DEFAULT_RESET_TIME_MS = 60000;
+
+// Fallback API keys in case environment variables are not set
+const FALLBACK_GROQ_API_KEYS = [
+  process.env.GROQ_API_KEY || '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',
+  
 ];
 
-// Default reset time in milliseconds (1.5 minutes = 90000 ms)
-const DEFAULT_RESET_TIME_MS = 90000;
+/**
+ * Get all available API keys
+ * @returns Array of all API keys
+ */
+export function getAllGroqApiKeys(): string[] {
+  // First try to get keys from environment variables
+  const envKeys = [];
+  for (let i = 1; i <= 20; i++) {
+    const key = process.env[`GROQ_API_KEY${i === 1 ? '' : i}`];
+    if (key) envKeys.push(key);
+  }
 
-interface KeyStatus {
-  key: string;
-  isAvailable: boolean;
-  lastUsed: number;
-  resetTime: number;
+  // If we have keys from environment, use those
+  if (envKeys.length > 0) {
+    return envKeys.filter(key => key && key.trim() !== '' && key.startsWith('gsk_'));
+  }
+
+  // Otherwise use fallback keys
+  return FALLBACK_GROQ_API_KEYS.filter(key => key && key.trim() !== '' && key.startsWith('gsk_'));
 }
 
-// Initialize key status tracking
-let keyStatusList: KeyStatus[] = GROQ_API_KEYS.map(key => ({
-  key,
-  isAvailable: true,
-  lastUsed: 0,
-  resetTime: DEFAULT_RESET_TIME_MS
-}));
+// Check and reset any rate-limited keys that have passed their reset time
+function checkAndResetRateLimitedKeys() {
+  const now = Date.now();
+  const keysToReset = [];
 
-let currentKeyIndex = 0;
+  for (const [key, resetTime] of rateLimitResetTimes.entries()) {
+    if (now >= resetTime) {
+      keysToReset.push(key);
+    }
+  }
+
+  for (const key of keysToReset) {
+    console.log(`Resetting previously rate-limited key: ${key.substring(0, 10)}...`);
+    rateLimitedKeys.delete(key);
+    rateLimitResetTimes.delete(key);
+  }
+}
 
 /**
  * Get the next available API key
  * @returns The next available API key
  */
 export function getGroqApiKey(): string {
-  const now = Date.now();
+  // First check if any rate-limited keys can be reset
+  checkAndResetRateLimitedKeys();
+
+  // Get all keys
+  const allKeys = getAllGroqApiKeys();
   
-  // Check if the current key is available
-  if (keyStatusList[currentKeyIndex].isAvailable) {
-    const key = keyStatusList[currentKeyIndex].key;
-    keyStatusList[currentKeyIndex].lastUsed = now;
-    return key;
+  if (allKeys.length === 0) {
+    console.error("No valid Groq API keys available");
+    return "";
   }
-  
+
   // Find the next available key
-  for (let i = 0; i < keyStatusList.length; i++) {
-    const index = (currentKeyIndex + i + 1) % keyStatusList.length;
-    const keyStatus = keyStatusList[index];
-    
-    // If key is marked unavailable, check if it's reset time has passed
-    if (!keyStatus.isAvailable) {
-      if (now - keyStatus.lastUsed >= keyStatus.resetTime) {
-        keyStatus.isAvailable = true;
-      }
-    }
-    
-    if (keyStatus.isAvailable) {
-      currentKeyIndex = index;
-      keyStatus.lastUsed = now;
-      return keyStatus.key;
-    }
+  const availableKeys = allKeys.filter(key => !rateLimitedKeys.has(key));
+  
+  if (availableKeys.length > 0) {
+    // Use the next available key
+    const nextKey = availableKeys[0];
+    keyUsageTimestamps.set(nextKey, Date.now());
+    console.log(`Using Groq API key: ${nextKey.substring(0, 10)}...`);
+    return nextKey;
   }
-  
-  // If all keys are unavailable, use the least recently used key
-  const oldestKeyIndex = keyStatusList
-    .map((status, index) => ({ index, lastUsed: status.lastUsed }))
-    .sort((a, b) => a.lastUsed - b.lastUsed)[0].index;
-  
-  currentKeyIndex = oldestKeyIndex;
-  keyStatusList[oldestKeyIndex].lastUsed = now;
-  keyStatusList[oldestKeyIndex].isAvailable = true;
-  
-  return keyStatusList[oldestKeyIndex].key;
+
+  // If all keys are rate limited, use the least recently used key
+  const oldestKey = [...rateLimitedKeys].sort((a, b) => {
+    return (rateLimitResetTimes.get(a) || 0) - (rateLimitResetTimes.get(b) || 0);
+  })[0];
+
+  if (oldestKey) {
+    console.log(`All keys rate limited, using oldest key: ${oldestKey.substring(0, 10)}...`);
+    keyUsageTimestamps.set(oldestKey, Date.now());
+    return oldestKey;
+  }
+
+  console.error("No Groq API keys available");
+  return "";
 }
 
 /**
- * Mark a key as rate limited
+ * Mark an API key as rate limited
  * @param key The API key to mark as rate limited
  */
-export function markKeyAsRateLimited(key: string): void {
-  const keyIndex = keyStatusList.findIndex(status => status.key === key);
-  if (keyIndex !== -1) {
-    keyStatusList[keyIndex].isAvailable = false;
-    keyStatusList[keyIndex].lastUsed = Date.now();
-  }
-}
-
-/**
- * Add a new API key to the rotation
- * @param key The new API key to add
- */
-export function addApiKey(key: string): void {
-  // Check if key already exists
-  if (!keyStatusList.some(status => status.key === key)) {
-    keyStatusList.push({
-      key,
-      isAvailable: true,
-      lastUsed: 0,
-      resetTime: DEFAULT_RESET_TIME_MS
-    });
-  }
-}
-
-/**
- * Get all API keys and their status
- * @returns Array of key status objects
- */
-export function getAllKeyStatus(): KeyStatus[] {
-  return [...keyStatusList];
-}
-
-/**
- * Set a custom reset time for all keys
- * @param timeMs Reset time in milliseconds
- */
-export function setResetTime(timeMs: number): void {
-  if (timeMs > 0) {
-    keyStatusList.forEach(status => {
-      status.resetTime = timeMs;
-    });
-  }
+export function markKeyAsRateLimited(key: string) {
+  if (!key || key.trim() === '') return;
+  
+  rateLimitedKeys.add(key);
+  // Set the reset time to 60 seconds from now
+  const resetTime = Date.now() + DEFAULT_RESET_TIME_MS;
+  rateLimitResetTimes.set(key, resetTime);
+  console.log(`Marked key as rate limited: ${key.substring(0, 10)}... (will reset in 60s)`);
 }

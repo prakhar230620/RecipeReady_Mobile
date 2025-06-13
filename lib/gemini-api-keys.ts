@@ -7,13 +7,12 @@
 
 // Array of Gemini API keys
 const GEMINI_API_KEYS = [
-  'AIzaSyAADeCP52o554AU2IrQFb9NeDruudFBYdM', // Default key
-  // Add more Gemini API keys here
-  // Example: 'AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-];
+  process.env.GEMINI_API_KEY || 'AIzaSyAADeCP52o554AU2IrQFb9NeDruudFBYdM', // Default key
+  // Add more Gemini API keys here if needed
+].filter(key => key && key.trim() !== '');
 
-// Default reset time in milliseconds (1.5 minutes = 90000 ms)
-const DEFAULT_RESET_TIME_MS = 90000;
+// Default reset time in milliseconds (30 seconds = 30000 ms)
+const DEFAULT_RESET_TIME_MS = 30000;
 
 interface KeyStatus {
   key: string;
