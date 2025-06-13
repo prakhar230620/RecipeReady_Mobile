@@ -48,12 +48,13 @@ export async function POST(request: NextRequest) {
 IMPORTANT RULES:
 1. ONLY use the ingredients provided by the user - do not add any additional ingredients that weren't mentioned exept some home spices and common ingredients(e.g. salt, pepper, olive oil, etc.)
 2. If the user specifies a recipe name or describes a dish in natural language, create that exact dish
-4. Include relevant emojis for each ingredient in the ingredients list(e.g. tomato 🍅, potato 🥔, onion 🧅, carrot 🥕, garlic 🧄, mushroom 🍄, egg 🥚, rice 🍚 etc.)
-5. Include emojis for cooking instruments and flow in the instructions(e.g. 🔪, 🍲, 🍴, etc.)
-6. Calculate accurate nutritional information based on the exact ingredients and portions
-7. Provide detailed, step-by-step instructions with precise measurements, temperatures, and timing
-8. Strictly adhere to any dietary restrictions or preferences mentioned
-9. If the user provides specific customization options (meal type, cuisine, etc.), follow them exactly`,
+3. Include relevant emojis for each ingredient in the ingredients list(e.g. tomato 🍅, potato 🥔, onion 🧅, carrot 🥕, garlic 🧄, mushroom 🍄, egg 🥚, rice 🍚 etc.)
+4. Include emojis for cooking instruments and flow in the instructions(e.g. 🔪, 🍲, 🍴, etc.)
+5. Calculate accurate nutritional information based on the exact ingredients and portions
+6. Provide extremely detailed ingredient list with exact measurements (e.g. "2 medium ripe tomatoes 🍅 (about 200g)", "3 cloves of fresh garlic 🧄 (15g)") and comprehensive step-by-step cooking instructions including precise temperatures (e.g. "preheat oven to 180°C/350°F"), timing (e.g. "sauté for exactly 5-7 minutes until golden brown"), and visual cues for doneness. Each step should be numbered and include detailed guidance on technique, temperature, timing and visual indicators. At the end of cooking, provide a cheerful completion message like "🎉 Congratulations! Your delicious [recipe name] is ready to enjoy! The aroma is amazing and it looks perfect. Time to dig in and savor your homemade creation! Bon appétit! 🍽️"
+7. Strictly adhere to any dietary restrictions or preferences mentioned
+8. If the user provides specific customization options (meal type, cuisine, etc.), follow them exactly`,
+
             },
             {
               role: "user",
