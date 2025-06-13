@@ -30,6 +30,8 @@ interface EmailRecord {
   sentAt: string
   sentBy: string
   recipientCount: number
+  successCount?: number
+  failureCount?: number
 }
 
 export default function AdminPage() {
@@ -102,7 +104,9 @@ export default function AdminPage() {
       const data = await response.json()
 
       if (response.ok) {
-        toast.success('Email sent successfully!')
+        toast.success(
+          `Email sent successfully! ${data.successCount} out of ${data.recipientCount} delivered.`
+        )
         setEmailForm({
           subject: '',
           content: ''
@@ -299,6 +303,20 @@ export default function AdminPage() {
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Users className="h-3 w-3" />
                           <span>Sent to {email.recipientCount} recipients</span>
+                          {email.successCount !== undefined && email.failureCount !== undefined && (
+                            <>
+                              <span className="mx-1">|</span>
+                              <CheckCircle2 className="h-3 w-3 text-green-500" />
+                              <span className="text-green-600">{email.successCount} delivered</span>
+                              {email.failureCount > 0 && (
+                                <>
+                                  <span className="mx-1">|</span>
+                                  <AlertTriangle className="h-3 w-3 text-amber-500" />
+                                  <span className="text-amber-600">{email.failureCount} failed</span>
+                                </>
+                              )}
+                            </>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

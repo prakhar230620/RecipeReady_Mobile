@@ -49,7 +49,21 @@ export async function POST(request: NextRequest) {
       )
     })
 
-    await Promise.allSettled(emailPromises)
+    const results = await Promise.allSettled(emailPromises)
+    
+    // Count successful emails
+    const successfulEmails = results.filter(
+      result => result.status === 'fulfilled' && result.value.success
+    ).length
+    
+    // Log failed emails
+    const failedEmails = results.filter(
+      result => result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.success)
+    )
+    
+    if (failedEmails.length > 0) {
+      console.error(`Failed to send ${failedEmails.length} emails:`, failedEmails)
+    }
 
     // Save email record to database
     await db.collection('emailHistory').insertOne({
@@ -57,12 +71,16 @@ export async function POST(request: NextRequest) {
       content,
       sentAt: new Date(),
       sentBy: session.user.email,
-      recipientCount: users.length
+      recipientCount: users.length,
+      successCount: successfulEmails,
+      failureCount: failedEmails.length
     })
 
     return NextResponse.json({
-      message: `Email sent to ${users.length} users`,
-      recipientCount: users.length
+      message: `Email sent to ${successfulEmails} out of ${users.length} users`,
+      recipientCount: users.length,
+      successCount: successfulEmails,
+      failureCount: failedEmails.length
     })
   } catch (error) {
     console.error('Send bulk email error:', error)
