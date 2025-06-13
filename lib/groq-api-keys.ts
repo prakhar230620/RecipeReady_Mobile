@@ -14,10 +14,8 @@ const keyUsageTimestamps = new Map<string, number>();
 const DEFAULT_RESET_TIME_MS = 60000;
 
 // Fallback API keys in case environment variables are not set
-const FALLBACK_GROQ_API_KEYS = [
-  process.env.GROQ_API_KEY || '',
-  
-];
+// Add multiple fallback keys here to ensure the application works even if some keys are rate limited
+const FALLBACK_GROQ_API_KEYS = process.env.GROQ_API_KEYS?.split(',') || []
 
 /**
  * Get all available API keys
@@ -26,17 +24,28 @@ const FALLBACK_GROQ_API_KEYS = [
 export function getAllGroqApiKeys(): string[] {
   // First try to get keys from environment variables
   const envKeys = [];
-  for (let i = 1; i <= 20; i++) {
-    const key = process.env[`GROQ_API_KEY${i === 1 ? '' : i}`];
+  
+  // Try to get the main GROQ_API_KEY
+  const mainKey = process.env.GROQ_API_KEY;
+  if (mainKey) envKeys.push(mainKey);
+  
+  // Try to get additional numbered keys
+  for (let i = 2; i <= 20; i++) {
+    const key = process.env[`GROQ_API_KEY${i}`];
     if (key) envKeys.push(key);
   }
 
   // If we have keys from environment, use those
   if (envKeys.length > 0) {
-    return envKeys.filter(key => key && key.trim() !== '' && key.startsWith('gsk_'));
+    const validEnvKeys = envKeys.filter(key => key && key.trim() !== '' && key.startsWith('gsk_'));
+    if (validEnvKeys.length > 0) {
+      console.log(`Using ${validEnvKeys.length} environment variable API keys`);
+      return validEnvKeys;
+    }
   }
 
   // Otherwise use fallback keys
+  console.log('Using fallback API keys');
   return FALLBACK_GROQ_API_KEYS.filter(key => key && key.trim() !== '' && key.startsWith('gsk_'));
 }
 
@@ -103,13 +112,12 @@ export function getGroqApiKey(): string {
 /**
  * Mark an API key as rate limited
  * @param key The API key to mark as rate limited
+ * @param resetTimeMs Optional custom reset time in milliseconds
  */
-export function markKeyAsRateLimited(key: string) {
+export function markKeyAsRateLimited(key: string, resetTimeMs: number = DEFAULT_RESET_TIME_MS): void {
   if (!key || key.trim() === '') return;
   
+  console.log(`Marking key as rate limited: ${key.substring(0, 10)}... for ${resetTimeMs}ms`);
   rateLimitedKeys.add(key);
-  // Set the reset time to 60 seconds from now
-  const resetTime = Date.now() + DEFAULT_RESET_TIME_MS;
-  rateLimitResetTimes.set(key, resetTime);
-  console.log(`Marked key as rate limited: ${key.substring(0, 10)}... (will reset in 60s)`);
+  rateLimitResetTimes.set(key, Date.now() + resetTimeMs);
 }

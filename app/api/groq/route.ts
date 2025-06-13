@@ -28,20 +28,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ recipe: mockRecipe })
     }
 
+    console.log(`Making API call with ingredients: ${ingredients} and key: ${currentApiKey.substring(0, 10)}...`)
     const prompt = buildNaturalLanguagePrompt(ingredients, filters)
 
-    const response = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${currentApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          {
-            role: "system",
-            content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.
+    try {
+      const response = await fetch(GROQ_API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${currentApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant",
+          messages: [
+            {
+              role: "system",
+              content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.
 
 IMPORTANT RULES:
 1. ONLY use the ingredients provided by the user - do not add any additional ingredients that weren't mentioned
@@ -53,380 +55,237 @@ IMPORTANT RULES:
 7. Provide detailed, step-by-step instructions with precise measurements, temperatures, and timing
 8. Strictly adhere to any dietary restrictions or preferences mentioned
 9. If the user provides specific customization options (meal type, cuisine, etc.), follow them exactly`,
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 2500,
-        top_p: 1,
-        stream: false,
-      }),
-    })
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 2500,
+          top_p: 1,
+          stream: false,
+        }),
+      })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Groq API error: ${response.status} ${response.statusText}`, errorText)
-      console.error(`Request body:`, JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          {
-            role: "system",
-            content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.`,
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 2500,
-        top_p: 1,
-        stream: false,
-      }))
-      
-      // Mark the current key as rate limited if we get a 429 error
-      if (response.status === 429) {
-        console.warn(`API key rate limited: ${currentApiKey.substring(0, 10)}...`)
-        markKeyAsRateLimited(currentApiKey)
-      } else if (response.status === 401) {
-        // Mark the key as rate limited if it's unauthorized (invalid key)
-        console.warn(`API key unauthorized (invalid): ${currentApiKey.substring(0, 10)}...`)
-        markKeyAsRateLimited(currentApiKey)
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Groq API error: ${response.status} ${response.statusText}`, errorText)
+        console.error(`Request body:`, JSON.stringify({
+          model: "llama-3.1-8b-instant",
+          messages: [
+            {
+              role: "system",
+              content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.`,
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 2500,
+          top_p: 1,
+          stream: false,
+        }))
+        
+        // Mark the current key as rate limited if we get a 429 error
+        if (response.status === 429) {
+          console.warn(`API key rate limited: ${currentApiKey.substring(0, 10)}...`)
+          markKeyAsRateLimited(currentApiKey)
+        } else if (response.status === 401) {
+          // Mark the key as rate limited if it's unauthorized (invalid key)
+          console.warn(`API key unauthorized (invalid): ${currentApiKey.substring(0, 10)}...`)
+          markKeyAsRateLimited(currentApiKey)
+        }
+
+        throw new Error(`API call failed with status ${response.status}: ${errorText}`)
       }
 
-      // Try with a different API key immediately if available
-      const newApiKey = getGroqApiKey();
-      if (newApiKey !== currentApiKey && newApiKey !== "") {
-        console.log("Retrying with a different API key...")
-        const retryResponse = await fetch(GROQ_API_URL, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${newApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "llama-3.1-8b-instant",
-            messages: [
-              {
-                role: "system",
-                content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.`,
-              },
-              {
-                role: "user",
-                content: prompt,
-              },
-            ],
-            temperature: 0.7,
-            max_tokens: 2500,
-            top_p: 1,
-            stream: false,
-          }),
-        })
+      const data = await response.json()
+      const recipeText = data.choices?.[0]?.message?.content
 
-        if (retryResponse.ok) {
-          const retryData = await retryResponse.json()
-          const retryRecipeText = retryData.choices?.[0]?.message?.content
-          if (retryRecipeText) {
-            // Process the successful retry response
-            let cleanedText = retryRecipeText.trim()
-            if (cleanedText.includes("```json")) {
-              cleanedText = cleanedText.split("```json")[1].split("```")[0].trim()
-            } else if (cleanedText.includes("```")) {
-              cleanedText = cleanedText.split("```")[1].split("```")[0].trim()
-            }
-            try {
-              const recipe = JSON.parse(cleanedText)
-              recipe.id = generateRecipeId()
-              if (!recipe.ingredients.length || !recipe.instructions.length) {
-                throw new Error("Incomplete recipe data")
-              }
-              console.log("Generated recipe with retry:", recipe)
-              return NextResponse.json({ recipe })
-            } catch (parseError) {
-              console.error("Failed to parse recipe JSON from retry:", parseError)
-            }
+      if (!recipeText) {
+        console.error("No recipe content received from Groq API")
+        throw new Error("Empty response from API")
+      }
+
+      // Clean the response text to extract JSON
+      let cleanedText = recipeText.trim()
+
+      // Remove any markdown formatting or extra text
+      if (cleanedText.includes("```json")) {
+        cleanedText = cleanedText.split("```json")[1].split("```")[0].trim()
+      } else if (cleanedText.includes("```")) {
+        cleanedText = cleanedText.split("```")[1].split("```")[0].trim()
+      }
+
+      // Parse the JSON response
+      let recipe: Recipe
+      try {
+        // Try to parse the JSON, handling potential errors
+        let parsedRecipe;
+        try {
+          parsedRecipe = JSON.parse(cleanedText);
+          console.log("Successfully parsed recipe JSON");
+        } catch (jsonError) {
+          console.error("Initial JSON parse error:", jsonError);
+          
+          // Try to fix common JSON formatting issues
+          const fixedJson = cleanedText
+            .replace(/\'|\'/g, '"') // Replace single quotes with double quotes
+            .replace(/\,\s*\}/g, '}') // Remove trailing commas in objects
+            .replace(/\,\s*\]/g, ']'); // Remove trailing commas in arrays
+            
+          try {
+            parsedRecipe = JSON.parse(fixedJson);
+            console.log("Successfully parsed recipe JSON after fixing format");
+          } catch (fixedJsonError) {
+            console.error("Failed to parse even after fixing format:", fixedJsonError);
+            throw fixedJsonError;
           }
         }
-      }
 
+        // Generate accurate image for the recipe using Gemini
+        const imageUrl = await generateAccurateRecipeImage(
+          parsedRecipe.title || `Recipe for ${ingredients}`,
+          parsedRecipe.description || `A delicious recipe with ${ingredients}`,
+          parsedRecipe.cuisine || (filters.cuisine?.length > 0 ? filters.cuisine[0] : "International"),
+        )
+
+        recipe = {
+          id: generateRecipeId(),
+          title: parsedRecipe.title || `Recipe for ${ingredients}`,
+          description: parsedRecipe.description || `A delicious recipe created just for you`,
+          ingredients: Array.isArray(parsedRecipe.ingredients) ? parsedRecipe.ingredients : [],
+          instructions: Array.isArray(parsedRecipe.instructions) ? parsedRecipe.instructions : [],
+          prepTime: Number(parsedRecipe.prepTime) || 15,
+          cookTime: typeof parsedRecipe.cookTime === 'number' ? parsedRecipe.cookTime : 30,
+          servings: filters.servings || 2,
+          difficulty: ["Easy", "Medium", "Hard"].includes(parsedRecipe.difficulty) ? parsedRecipe.difficulty : "Medium",
+          cuisine: parsedRecipe.cuisine || (filters.cuisine?.length > 0 ? filters.cuisine[0] : "International"),
+          dietary: Array.isArray(parsedRecipe.dietary) ? parsedRecipe.dietary : (filters.dietary?.length > 0 ? filters.dietary : []),
+          image: imageUrl,
+          nutrition: calculateAccurateNutrition(parsedRecipe, filters),
+        }
+
+        // Validate that we have essential data
+        if (!recipe.ingredients.length || !recipe.instructions.length) {
+          console.error("Recipe validation failed: missing ingredients or instructions");
+          throw new Error("Incomplete recipe data")
+        }
+        
+        console.log("Successfully created recipe object with all required fields");
+        return NextResponse.json({ recipe })
+      } catch (parseError) {
+        console.error("Failed to parse recipe JSON:", parseError)
+        console.error("Raw response:", recipeText)
+        // Fallback: create a basic recipe structure
+        const fallbackRecipe = await createFallbackRecipeWithImage(ingredients, filters, recipeText, userLanguage)
+        return NextResponse.json({ recipe: fallbackRecipe })
+      }
+    } catch (apiError) {
+      console.error("API call error:", apiError)
+      
       // Try with all available API keys before falling back to mock recipe
+      console.log("Attempting to retry with different API keys...")
       const allKeys = getAllGroqApiKeys();
       
       for (const apiKey of allKeys) {
-        if (apiKey === currentApiKey || apiKey === newApiKey || !apiKey || apiKey.trim() === '') continue; // Skip keys we already tried or empty keys
+        if (apiKey === currentApiKey || !apiKey || apiKey.trim() === '') continue; // Skip keys we already tried or empty keys
         
-        console.log("Trying with another API key...")
-        const retryResponse = await fetch(GROQ_API_URL, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "llama-3.1-8b-instant",
-            messages: [
-              {
-                role: "system",
-                content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.`,
-              },
-              {
-                role: "user",
-                content: prompt,
-              },
-            ],
-            temperature: 0.7,
-            max_tokens: 2500,
-            top_p: 1,
-            stream: false,
-          }),
-        });
-        
-        if (retryResponse.ok) {
-          const retryData = await retryResponse.json();
-          const retryRecipeText = retryData.choices?.[0]?.message?.content;
+        console.log(`Trying with another API key: ${apiKey.substring(0, 10)}...`)
+        try {
+          const retryResponse = await fetch(GROQ_API_URL, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "llama-3.1-8b-instant",
+              messages: [
+                {
+                  role: "system",
+                  content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.
+
+IMPORTANT RULES:
+1. ONLY use the ingredients provided by the user - do not add any additional ingredients that weren't mentioned
+2. If the user specifies a recipe name or describes a dish in natural language, create that exact dish
+3. Respond in the same language the user used for their request
+4. Include relevant emojis for each ingredient in the ingredients list
+5. Include emojis for cooking instruments and flow in the instructions
+6. Calculate accurate nutritional information based on the exact ingredients and portions
+7. Provide detailed, step-by-step instructions with precise measurements, temperatures, and timing
+8. Strictly adhere to any dietary restrictions or preferences mentioned
+9. If the user provides specific customization options (meal type, cuisine, etc.), follow them exactly`,
+                },
+                {
+                  role: "user",
+                  content: prompt,
+                },
+              ],
+              temperature: 0.7,
+              max_tokens: 2500,
+              top_p: 1,
+              stream: false,
+            }),
+          });
           
-          if (retryRecipeText) {
-            // Process the successful retry response
-            let cleanedText = retryRecipeText.trim();
-            if (cleanedText.includes("```json")) {
-              cleanedText = cleanedText.split("```json")[1].split("```")[0].trim();
-            } else if (cleanedText.includes("```")) {
-              cleanedText = cleanedText.split("```")[1].split("```")[0].trim();
-            }
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            const retryRecipeText = retryData.choices?.[0]?.message?.content;
             
-            try {
-              const recipe = JSON.parse(cleanedText);
-              recipe.id = generateRecipeId();
-              
-              // Generate accurate image for the recipe
-              const imageUrl = await generateAccurateRecipeImage(
-                recipe.title,
-                recipe.description,
-                recipe.cuisine,
-              );
-              
-              const fullRecipe = {
-                ...recipe,
-                image: imageUrl,
-                nutrition: calculateAccurateNutrition(recipe, filters),
-              };
-              
-              if (!fullRecipe.ingredients.length || !fullRecipe.instructions.length) {
-                throw new Error("Incomplete recipe data");
+            if (retryRecipeText) {
+              // Process the successful retry response
+              let cleanedText = retryRecipeText.trim();
+              if (cleanedText.includes("```json")) {
+                cleanedText = cleanedText.split("```json")[1].split("```")[0].trim();
+              } else if (cleanedText.includes("```")) {
+                cleanedText = cleanedText.split("```")[1].split("```")[0].trim();
               }
               
-              console.log("Generated recipe with retry:", fullRecipe);
-              return NextResponse.json({ recipe: fullRecipe });
-            } catch (parseError) {
-              console.error("Failed to parse recipe JSON from retry:", parseError);
+              try {
+                const recipe = JSON.parse(cleanedText);
+                recipe.id = generateRecipeId();
+                
+                // Generate accurate image for the recipe
+                const imageUrl = await generateAccurateRecipeImage(
+                  recipe.title,
+                  recipe.description,
+                  recipe.cuisine,
+                );
+                
+                const fullRecipe = {
+                  ...recipe,
+                  image: imageUrl,
+                  nutrition: calculateAccurateNutrition(recipe, filters),
+                };
+                
+                if (!fullRecipe.ingredients.length || !fullRecipe.instructions.length) {
+                  throw new Error("Incomplete recipe data");
+                }
+                
+                console.log("Generated recipe with retry:", fullRecipe);
+                return NextResponse.json({ recipe: fullRecipe });
+              } catch (parseError) {
+                console.error("Failed to parse recipe JSON from retry:", parseError);
+              }
             }
+          } else if (retryResponse.status === 429 || retryResponse.status === 401) {
+            // Mark this key as rate limited
+            markKeyAsRateLimited(apiKey);
           }
-        } else if (retryResponse.status === 429 || retryResponse.status === 401) {
-          // Mark this key as rate limited
-          markKeyAsRateLimited(apiKey);
+        } catch (retryError) {
+          console.error(`Error with retry using key ${apiKey.substring(0, 10)}...`, retryError);
         }
       }
       
       // Return mock recipe as fallback if all retries failed
+      console.log("All API calls failed, using mock recipe");
       const mockRecipe = await createMockRecipeWithImage(ingredients, filters, userLanguage)
       return NextResponse.json({ recipe: mockRecipe })
     }
-
-    const data = await response.json()
-    const recipeText = data.choices?.[0]?.message?.content
-
-    if (!recipeText) {
-      console.error("No recipe content received from Groq API")
-      
-      // Try with all available API keys before falling back to mock recipe
-      const allKeys = getAllGroqApiKeys();
-      
-      for (const apiKey of allKeys) {
-        if (apiKey === currentApiKey || !apiKey || apiKey.trim() === '') continue; // Skip the key we already tried or empty keys
-        
-        console.log("Trying with another API key for empty response...")
-        const retryResponse = await fetch(GROQ_API_URL, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "llama-3.1-8b-instant",
-            messages: [
-              {
-                role: "system",
-                content: `You are a world-class chef and nutritionist who understands cooking in all languages and cultures. You create authentic, detailed recipes with accurate nutritional information. You understand natural language requests and can interpret what users want even from casual conversation. Always respond with valid JSON format only, no additional text. Be very specific about ingredients and cooking methods. Calculate accurate nutritional values based on ingredients and portions.`,
-              },
-              {
-                role: "user",
-                content: prompt,
-              },
-            ],
-            temperature: 0.7,
-            max_tokens: 2500,
-            top_p: 1,
-            stream: false,
-          }),
-        });
-        
-        if (retryResponse.ok) {
-          const retryData = await retryResponse.json();
-          const retryRecipeText = retryData.choices?.[0]?.message?.content;
-          
-          if (retryRecipeText) {
-            // Process the successful retry response
-            let cleanedText = retryRecipeText.trim();
-            if (cleanedText.includes("```json")) {
-              cleanedText = cleanedText.split("```json")[1].split("```")[0].trim();
-            } else if (cleanedText.includes("```")) {
-              cleanedText = cleanedText.split("```")[1].split("```")[0].trim();
-            }
-            
-            try {
-              const recipe = JSON.parse(cleanedText);
-              recipe.id = generateRecipeId();
-              
-              // Generate accurate image for the recipe
-              const imageUrl = await generateAccurateRecipeImage(
-                recipe.title,
-                recipe.description,
-                recipe.cuisine,
-              );
-              
-              const fullRecipe = {
-                ...recipe,
-                image: imageUrl,
-                nutrition: calculateAccurateNutrition(recipe, filters),
-              };
-              
-              if (!fullRecipe.ingredients.length || !fullRecipe.instructions.length) {
-                throw new Error("Incomplete recipe data");
-              }
-              
-              console.log("Generated recipe with retry after empty response:", fullRecipe);
-              return NextResponse.json({ recipe: fullRecipe });
-            } catch (parseError) {
-              console.error("Failed to parse recipe JSON from retry after empty response:", parseError);
-            }
-          }
-        } else if (retryResponse.status === 429 || retryResponse.status === 401) {
-          // Mark this key as rate limited
-          markKeyAsRateLimited(apiKey);
-        }
-      }
-      
-      const mockRecipe = await createMockRecipeWithImage(ingredients, filters, userLanguage)
-      return NextResponse.json({ recipe: mockRecipe })
-    }
-
-    // Clean the response text to extract JSON
-    let cleanedText = recipeText.trim()
-
-    // Remove any markdown formatting or extra text
-    if (cleanedText.includes("```json")) {
-      cleanedText = cleanedText.split("```json")[1].split("```")[0].trim()
-    } else if (cleanedText.includes("```")) {
-      cleanedText = cleanedText.split("```")[1].split("```")[0].trim()
-    }
-
-    // Parse the JSON response
-    let recipe: Recipe
-    try {
-      // Try to parse the JSON, handling potential errors
-      let parsedRecipe;
-      try {
-        parsedRecipe = JSON.parse(cleanedText);
-        console.log("Successfully parsed recipe JSON");
-      } catch (jsonError) {
-        console.error("Initial JSON parse error:", jsonError);
-        
-        // Try to fix common JSON formatting issues
-        const fixedJson = cleanedText
-          .replace(/\'|\'/g, '"') // Replace single quotes with double quotes
-          .replace(/\,\s*\}/g, '}') // Remove trailing commas in objects
-          .replace(/\,\s*\]/g, ']'); // Remove trailing commas in arrays
-          
-        try {
-          parsedRecipe = JSON.parse(fixedJson);
-          console.log("Successfully parsed recipe JSON after fixing format");
-        } catch (fixedJsonError) {
-          console.error("Failed to parse even after fixing format:", fixedJsonError);
-          throw fixedJsonError;
-        }
-      }
-
-      // Generate accurate image for the recipe using Gemini
-      const imageUrl = await generateAccurateRecipeImage(
-        parsedRecipe.title || `Recipe for ${ingredients}`,
-        parsedRecipe.description || `A delicious recipe with ${ingredients}`,
-        parsedRecipe.cuisine || (filters.cuisine?.length > 0 ? filters.cuisine[0] : "International"),
-      )
-
-      recipe = {
-        id: generateRecipeId(),
-        title: parsedRecipe.title || `Recipe for ${ingredients}`,
-        description: parsedRecipe.description || `A delicious recipe created just for you`,
-        ingredients: Array.isArray(parsedRecipe.ingredients) ? parsedRecipe.ingredients : [],
-        instructions: Array.isArray(parsedRecipe.instructions) ? parsedRecipe.instructions : [],
-        prepTime: Number(parsedRecipe.prepTime) || 15,
-        cookTime: parseCookTime(parsedRecipe.cookTime) || 30,
-        servings: filters.servings || 2,
-        difficulty: ["Easy", "Medium", "Hard"].includes(parsedRecipe.difficulty) ? parsedRecipe.difficulty : "Medium",
-        cuisine: parsedRecipe.cuisine || (filters.cuisine?.length > 0 ? filters.cuisine[0] : "International"),
-        dietary: Array.isArray(parsedRecipe.dietary) ? parsedRecipe.dietary : (filters.dietary?.length > 0 ? filters.dietary : []),
-        image: imageUrl,
-        nutrition: calculateAccurateNutrition(parsedRecipe, filters),
-      }
-
-      // Validate that we have essential data
-      if (!recipe.ingredients.length || !recipe.instructions.length) {
-        console.error("Recipe validation failed: missing ingredients or instructions");
-        throw new Error("Incomplete recipe data")
-      }
-      
-      console.log("Successfully created recipe object with all required fields");
-    } catch (parseError) {
-      console.error("Failed to parse recipe JSON:", parseError)
-      console.error("Raw response:", recipeText)
-      // Fallback: create a basic recipe structure
-      recipe = await createFallbackRecipeWithImage(ingredients, filters, recipeText, userLanguage)
-    }
-
-    // Helper function to parse cook time that might be in various formats
-    function parseCookTime(cookTime: any): number {
-      if (typeof cookTime === 'number') return cookTime;
-      if (!cookTime) return 30; // default
-      
-      // If it's a string, try to extract hours and minutes
-      if (typeof cookTime === 'string') {
-        let totalMinutes = 0;
-        
-        // Extract hours
-        const hoursMatch = cookTime.match(/(\d+)\s*hours?/i);
-        if (hoursMatch) {
-          totalMinutes += parseInt(hoursMatch[1], 10) * 60;
-        }
-        
-        // Extract minutes
-        const minutesMatch = cookTime.match(/(\d+)\s*minutes?/i);
-        if (minutesMatch) {
-          totalMinutes += parseInt(minutesMatch[1], 10);
-        }
-        
-        if (totalMinutes > 0) return totalMinutes;
-      }
-      
-      // If all else fails, return default
-      return 30;
-    }
-
-    console.log("Generated recipe:", recipe)
-    console.log("Generated recipe ID:", recipe.id)
-    return NextResponse.json({ recipe })
   } catch (error) {
     console.error("Error in Groq API route:", error)
 
@@ -435,10 +294,12 @@ IMPORTANT RULES:
       const body = await request.json()
       const { ingredients, filters } = body
       const userLanguage = request.headers.get("accept-language")?.split(",")[0] || "en"
+      console.log("Creating mock recipe after error")
       const mockRecipe = await createMockRecipeWithImage(ingredients, filters, userLanguage)
       return NextResponse.json({ recipe: mockRecipe })
-    } catch {
+    } catch (fallbackError) {
       // If we can't even parse the request, return a generic error
+      console.error("Failed to create fallback recipe:", fallbackError)
       return NextResponse.json({ error: "Failed to generate recipe" }, { status: 500 })
     }
   }
@@ -832,4 +693,32 @@ async function createFallbackRecipeWithImage(
     image: imageUrl,
     nutrition: calculateAccurateNutrition({}, filters),
   }
+}
+
+// Helper function to parse cook time that might be in various formats
+function parseCookTime(cookTime: any): number {
+  if (typeof cookTime === 'number') return cookTime;
+  if (!cookTime) return 30; // default
+  
+  // If it's a string, try to extract hours and minutes
+  if (typeof cookTime === 'string') {
+    let totalMinutes = 0;
+    
+    // Extract hours
+    const hoursMatch = cookTime.match(/(\d+)\s*hours?/i);
+    if (hoursMatch) {
+      totalMinutes += parseInt(hoursMatch[1], 10) * 60;
+    }
+    
+    // Extract minutes
+    const minutesMatch = cookTime.match(/(\d+)\s*minutes?/i);
+    if (minutesMatch) {
+      totalMinutes += parseInt(minutesMatch[1], 10);
+    }
+    
+    if (totalMinutes > 0) return totalMinutes;
+  }
+  
+  // If all else fails, return default
+  return 30;
 }
